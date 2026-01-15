@@ -1,0 +1,96 @@
+############################
+# .NET / C# / ASP.NET Core #
+############################
+
+# Build artefacts
+bin/
+obj/
+out/
+artifacts/
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# Visual Studio cache
+.vs/
+
+# ASP.NET Core secrets
+secrets.json
+
+# Logs
+*.log
+
+# Publish output
+publish/
+*.pubxml
+*.pubxml.user
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+project.lock.json
+project.fragment.lock.json
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+############################
+# JetBrains Rider / IntelliJ
+############################
+
+.idea/
+*.sln.iml
+
+############################
+# Node / npm / frontend
+############################
+
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+dist/
+build/
+.cache/
+.next/
+out/
+
+############################
+# OS-specific
+############################
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+############################
+# Editor-specific
+############################
+
+# VS Code
+.vscode/
+*.code-workspace
+
+############################
+# Temporary files
+############################
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.orig
