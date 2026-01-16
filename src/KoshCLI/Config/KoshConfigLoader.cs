@@ -8,12 +8,13 @@ internal class KoshConfigLoader
 {
     private const string ConfigFile = ".koshconfig";
 
-    public static Result<KoshConfig> Load()
+    public static Result<KoshConfig> Load(string src)
     {
-        if (!File.Exists(ConfigFile))
+        var path = $"{src}/{ConfigFile}";
+        if (!File.Exists(path))
             return Result.Fail(".koshconfig not found. Run kosh from project root.");
 
-        var yaml = File.ReadAllText(ConfigFile);
+        var yaml = File.ReadAllText(path);
 
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)

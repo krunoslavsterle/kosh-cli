@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using KoshCLI.Config;
 using Spectre.Console;
 
@@ -5,6 +6,14 @@ namespace KoshCLI.Services;
 
 internal static class ServiceRunner
 {
+    private static readonly List<Process> _running = new(); 
+    public static IReadOnlyList<Process> Running => _running;
+
+    public static void Register(Process p)
+    {
+        _running.Add(p);
+    }
+    
     public static void StartAll(List<ServiceConfig> services)
     {
         if (services.Count == 0)

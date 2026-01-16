@@ -25,7 +25,8 @@ public class StartCommand : Command<StartCommand.Settings>
             Environment.Exit(1);
         }
 
-        var configResult = KoshConfigLoader.Load();
+        // TODO: THIS IS ONLY FOR TESTING
+        var configResult = KoshConfigLoader.Load("/home/krunoslav/Workspace/test/kosh-test");
         if (configResult.IsFailed)
         {
             AnsiConsole.MarkupLine($"[bold red] {configResult.Errors[0].Message}[/]");
@@ -79,6 +80,21 @@ public class StartCommand : Command<StartCommand.Settings>
         ServiceRunner.StartAll(configResult.Value.Services);
 
         AnsiConsole.MarkupLine("[bold green]All done.[/]");
-        return 0;
+        
+        // TODO: Refactor
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true; AnsiConsole.MarkupLine("[red]Stopping all services...[/]"); 
+            foreach (var p in ServiceRunner.Running) 
+            {
+                try
+                {
+                    p.Kill(true); 
+                    
+                } catch {} } Environment.Exit(0);
+        }; 
+        
+        // TODO: REFACTOR
+        while (true) { Thread.Sleep(200); }
     }
 }

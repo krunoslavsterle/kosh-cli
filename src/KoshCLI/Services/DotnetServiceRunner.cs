@@ -48,18 +48,21 @@ internal static class DotnetServiceRunner
         process.OutputDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
-                AnsiConsole.MarkupLine($"[blue][{service.Name}][/]: {EscapeMarkup(e.Data)}");
+                AnsiConsole.MarkupLine($"[blue]{service.Name}[/]: {EscapeMarkup(e.Data)}");
         };
 
         process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
-                AnsiConsole.MarkupLine($"[red][{service.Name}][/]: {EscapeMarkup(e.Data)}");
+                AnsiConsole.MarkupLine($"[red]{service.Name}[/]: {EscapeMarkup(e.Data)}");
         };
 
         try
         {
             process.Start();
+            
+            ServiceRunner.Register(process);
+            
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
         }
@@ -73,7 +76,7 @@ internal static class DotnetServiceRunner
 
     private static string BuildArguments(ServiceConfig service)
     {
-        var baseArgs = "watch run";
+        var baseArgs = "watch --no-hot-reload run";
 
         if (service.Path!.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
             baseArgs = $"{baseArgs} --project \"{service.Path}\"";
