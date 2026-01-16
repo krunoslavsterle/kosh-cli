@@ -1,6 +1,7 @@
 using KoshCLI.Config;
 using KoshCLI.Services;
 using KoshCLI.System;
+using KoshCLI.Terminal;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -16,12 +17,10 @@ public class StartCommand : Command<StartCommand.Settings>
         CancellationToken cancellationToken
     )
     {
-        AnsiConsole.MarkupLine("[bold green]Kosh starting...[/]");
-
         var osPlatformResult = SystemHelper.GetOsPlatform();
         if (osPlatformResult.IsFailed)
         {
-            AnsiConsole.MarkupLine($"[bold red] {osPlatformResult.Errors[0].Message}[/]");
+            KoshConsole.Error(osPlatformResult.Errors[0].Message);
             Environment.Exit(1);
         }
 
@@ -29,7 +28,7 @@ public class StartCommand : Command<StartCommand.Settings>
         var configResult = KoshConfigLoader.Load("/home/krunoslav/Workspace/test/kosh-test");
         if (configResult.IsFailed)
         {
-            AnsiConsole.MarkupLine($"[bold red] {configResult.Errors[0].Message}[/]");
+            KoshConsole.Error(configResult.Errors[0].Message);
             Environment.Exit(1);
         }
 
@@ -39,7 +38,7 @@ public class StartCommand : Command<StartCommand.Settings>
         if (!validationResult.IsValid)
         {
             foreach (var error in validationResult.Errors)
-                AnsiConsole.MarkupLine($"[bold red] {error.ErrorMessage}[/]");
+                KoshConsole.Error(error.ErrorMessage);
 
             Environment.Exit(1);
         }
@@ -47,7 +46,7 @@ public class StartCommand : Command<StartCommand.Settings>
         var commandsValidationResult = SystemCommandsValidator.ValidateConfig(configResult.Value);
         if (!commandsValidationResult.IsValid)
         {
-            AnsiConsole.MarkupLine("[bold red] Please install the missing tool(s)[/]");
+            KoshConsole.Error("Please install the missing tool(s)");
 
             var table = new Table().AddColumn("Tool").AddColumn("Status");
             table.AddRow(
@@ -71,20 +70,25 @@ public class StartCommand : Command<StartCommand.Settings>
 
         SystemDomainsHelper.EnsureDomainsExists(configResult.Value.Hosts, osPlatformResult.Value);
 
-        AnsiConsole.MarkupLine($"[bold yellow]Starting {configResult.Value.ProjectName}...[/]");
+        KoshConsole.Info($"Starting {configResult.Value.ProjectName}...");
 
-        AnsiConsole.MarkupLine("[yellow]Running migrations...[/]");
+        KoshConsole.Info($"Running migrations...");
         // TODO: MigrationRunner.Run(config.ModulesPath);
+        KoshConsole.Success($"Running migrations completed");
+        
 
-        AnsiConsole.MarkupLine("[yellow]Starting services...[/]");
+        KoshConsole.Info($"Starting services...");
         ServiceRunner.StartAll(configResult.Value.Services);
-
-        AnsiConsole.MarkupLine("[bold green]All done.[/]");
+        KoshConsole.Success($"Starting services completed");
+        
+        KoshConsole.Success($"{configResult.Value.ProjectName} started.");
         
         // TODO: Refactor
         Console.CancelKeyPress += (_, e) =>
         {
-            e.Cancel = true; AnsiConsole.MarkupLine("[red]Stopping all services...[/]"); 
+            e.Cancel = true; 
+            KoshConsole.Error("Stopping all services...");
+            
             foreach (var p in ServiceRunner.Running) 
             {
                 try

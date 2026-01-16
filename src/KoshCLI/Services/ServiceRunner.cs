@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using KoshCLI.Config;
+using KoshCLI.Terminal;
 using Spectre.Console;
 
 namespace KoshCLI.Services;
@@ -18,20 +19,16 @@ internal static class ServiceRunner
     {
         if (services.Count == 0)
         {
-            AnsiConsole.MarkupLine("[yellow]No services defined in .koshconfig.[/]");
+            KoshConsole.Info("No services defined in .koshconfig.");
             return;
         }
-
-        AnsiConsole.MarkupLine("[bold underline]Starting services[/]");
 
         foreach (var service in services)
         {
             if (service.Type is null || service.Name is null)
             {
                 // TODO: MAYBE STOP HERE?
-                AnsiConsole.MarkupLine(
-                    "[red]Invalid service entry in config (missing name or type). Skipping.[/]"
-                );
+                KoshConsole.Error("Invalid service entry in config (missing name or type). Skipping.");
                 continue;
             }
 
@@ -46,9 +43,7 @@ internal static class ServiceRunner
                 //     break;
 
                 default:
-                    AnsiConsole.MarkupLine(
-                        $"[red]Unknown service type:[/] {service.Type} for service [bold]{service.Name}[/]. Skipping."
-                    );
+                    KoshConsole.Error($"Unknown service type:[/] {service.Type} for service [bold]{service.Name}[/]. Skipping.");
                     break;
             }
         }

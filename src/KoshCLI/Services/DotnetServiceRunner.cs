@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using KoshCLI.Config;
+using KoshCLI.Terminal;
 using Spectre.Console;
 
 namespace KoshCLI.Services;
@@ -11,23 +12,19 @@ internal static class DotnetServiceRunner
         if (service.Path is null)
         {
             // TODO: MAYBE STOP HERE, OR VALIDATE THIS BEFORE!
-            AnsiConsole.MarkupLine($"[red]Service {service.Name}: path is not set.[/]");
+            KoshConsole.Error($"Service {service.Name}: path is not set.");
             return;
         }
 
         if (!Directory.Exists(service.Path) && !File.Exists(service.Path))
         {
-            AnsiConsole.MarkupLine(
-                $"[red]Service {service.Name}: path '{service.Path}' does not exist.[/]"
-            );
+            KoshConsole.Error($"Service {service.Name}: path '{service.Path}' does not exist.");
             return;
         }
 
         var args = BuildArguments(service);
 
-        AnsiConsole.MarkupLine(
-            $"[green]Starting dotnet service[/] [bold]{service.Name}[/] [grey]({args})[/]"
-        );
+        KoshConsole.Info($"Starting dotnet service [bold][[{service.Name}]][/] ...");
 
         var process = new Process
         {
@@ -48,13 +45,13 @@ internal static class DotnetServiceRunner
         process.OutputDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
-                AnsiConsole.MarkupLine($"[blue]{service.Name}[/]: {EscapeMarkup(e.Data)}");
+                KoshConsole.WriteServiceLine(service.Name!, EscapeMarkup(e.Data));
         };
 
         process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
-                AnsiConsole.MarkupLine($"[red]{service.Name}[/]: {EscapeMarkup(e.Data)}");
+                KoshConsole.WriteServiceLine(service.Name!, EscapeMarkup(e.Data)); // TODO: MAYBE DIFFERENT COLOR
         };
 
         try
@@ -65,12 +62,12 @@ internal static class DotnetServiceRunner
             
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
+            
+            KoshConsole.Success($"Service [bold][[{service.Name}]][/] started.");
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine(
-                $"[red]Failed to start dotnet service {service.Name}: {EscapeMarkup(ex.Message)}[/]"
-            );
+            KoshConsole.Error($"Failed to start dotnet service {service.Name}: {EscapeMarkup(ex.Message)}");
         }
     }
 
