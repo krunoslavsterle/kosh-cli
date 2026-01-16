@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using KoshCLI.Config;
 using KoshCLI.Terminal;
-using Spectre.Console;
 
 namespace KoshCLI.Services;
 
@@ -36,12 +35,20 @@ internal static class ServiceRunner
 
             switch (service.Type.ToLowerInvariant())
             {
-                case "dotnet":
-                    DotnetServiceRunner.Start(service);
+                case "dotnet-watch":
+                    DotnetWatchServiceRunner.Start(service);
+                    break;
+
+                case "dotnet-run":
+                    DotnetRunServiceRunner.Start(service);
                     break;
 
                 case "caddy":
                     CaddyServiceRunner.Start(service);
+                    break;
+
+                case "docker-compose":
+                    DockerComposeRunner.Start(service, CancellationToken.None);
                     break;
 
                 // case "npm":

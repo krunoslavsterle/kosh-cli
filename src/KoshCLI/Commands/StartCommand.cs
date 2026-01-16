@@ -84,12 +84,6 @@ public class StartCommand : Command<StartCommand.Settings>
                 $"[yellow]Starting {configResult.Value.ProjectName}[/]",
                 ctx =>
                 {
-                    // MIGRATIONS
-                    KoshConsole.Info($"Running migrations...");
-                    Thread.Sleep(1000);
-                    // TODO: MigrationRunner.Run(config.ModulesPath);
-                    KoshConsole.Success($"Running migrations completed");
-
                     // SERVICES
                     ctx.Spinner(Spinner.Known.BouncingBar);
                     ctx.Status("[bold blue]Starting services[/]");

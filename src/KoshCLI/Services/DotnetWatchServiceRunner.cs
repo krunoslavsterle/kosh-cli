@@ -5,7 +5,7 @@ using Spectre.Console;
 
 namespace KoshCLI.Services;
 
-internal static class DotnetServiceRunner
+internal static class DotnetWatchServiceRunner
 {
     public static void Start(ServiceConfig service)
     {
@@ -45,7 +45,7 @@ internal static class DotnetServiceRunner
         process.OutputDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
-                KoshConsole.WriteServiceLine(service.Name!, EscapeMarkup(e.Data));
+                KoshConsole.WriteServiceLog(service.Name!, EscapeMarkup(e.Data));
         };
 
         process.ErrorDataReceived += (_, e) =>
@@ -53,7 +53,7 @@ internal static class DotnetServiceRunner
             // THIS IS CALLED WHEN PROCESS RETURNS 1
             // TODO: DO WE NEED TO STOP THE KOSH PROCESS HERE??
             if (!string.IsNullOrEmpty(e.Data))
-                KoshConsole.WriteServiceErrorLine(service.Name!, EscapeMarkup(e.Data)); // TODO: MAYBE DIFFERENT COLOR
+                KoshConsole.WriteServiceErrorLog(service.Name!, EscapeMarkup(e.Data)); // TODO: MAYBE DIFFERENT COLOR
         };
 
         try

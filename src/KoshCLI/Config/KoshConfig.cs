@@ -18,6 +18,8 @@ internal class ServiceConfig
     public bool? Logs { get; init; }
     public string? Args { get; init; }
     public Dictionary<string, string> Env { get; init; } = [];
+
+    public bool ShouldLog => !Logs.HasValue || Logs.Value;
 }
 
 internal record DockerConfig

@@ -1,11 +1,11 @@
 using System.Diagnostics;
-using System.Text.Json.Nodes;
 using KoshCLI.Config;
 using KoshCLI.Terminal;
+using Spectre.Console;
 
 namespace KoshCLI.Services;
 
-internal class CaddyServiceRunner
+internal static class DotnetRunServiceRunner
 {
     public static void Start(ServiceConfig service)
     {
@@ -24,13 +24,13 @@ internal class CaddyServiceRunner
 
         var args = BuildArguments(service);
 
-        KoshConsole.Info($"Starting caddy service [bold][[{service.Name}]][/] ...");
+        KoshConsole.Info($"Starting dotnet-run service [bold][[{service.Name}]][/] ...");
 
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = "caddy",
+                FileName = "dotnet",
                 Arguments = args,
                 WorkingDirectory = GetWorkingDirectory(service),
                 RedirectStandardOutput = true,
@@ -42,22 +42,19 @@ internal class CaddyServiceRunner
         foreach (var kv in service.Env)
             process.StartInfo.Environment[kv.Key] = kv.Value;
 
-        if (!service.Logs.HasValue || service.Logs.Value)
+        process.OutputDataReceived += (_, e) =>
         {
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceLog(service.Name!, EscapeMarkup(e.Data));
-            };
+            if (!string.IsNullOrEmpty(e.Data))
+                KoshConsole.WriteServiceLog(service.Name!, EscapeMarkup(e.Data));
+        };
 
-            process.ErrorDataReceived += (_, e) =>
-            {
-                // THIS IS CALLED WHEN PROCESS RETURNS 1
-                // TODO: DO WE NEED TO STOP THE KOSH PROCESS HERE??
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceErrorLog(service.Name!, EscapeMarkup(e.Data)); // TODO: MAYBE DIFFERENT COLOR
-            };
-        }
+        process.ErrorDataReceived += (_, e) =>
+        {
+            // THIS IS CALLED WHEN PROCESS RETURNS 1
+            // TODO: DO WE NEED TO STOP THE KOSH PROCESS HERE??
+            if (!string.IsNullOrEmpty(e.Data))
+                KoshConsole.WriteServiceErrorLog(service.Name!, EscapeMarkup(e.Data)); // TODO: MAYBE DIFFERENT COLOR
+        };
 
         try
         {
@@ -69,6 +66,7 @@ internal class CaddyServiceRunner
             process.BeginErrorReadLine();
 
             KoshConsole.Success($"Service [bold][[{service.Name}]][/] started.");
+            process.WaitForExit();
         }
         catch (Exception ex)
         {
@@ -80,8 +78,12 @@ internal class CaddyServiceRunner
 
     private static string BuildArguments(ServiceConfig service)
     {
-        const string baseArgs = "run";
-        return $"{baseArgs} {service.Args}";
+        var baseArgs = "run";
+
+        if (service.Path!.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            baseArgs = $"{baseArgs} --project \"{service.Path}\"";
+
+        return service.Args is null ? baseArgs : $"{baseArgs} {service.Args}";
     }
 
     private static string GetWorkingDirectory(ServiceConfig service)

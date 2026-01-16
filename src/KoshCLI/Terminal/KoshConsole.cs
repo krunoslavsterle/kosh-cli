@@ -4,20 +4,22 @@ namespace KoshCLI.Terminal;
 
 public static class KoshConsole
 {
-    public static void WriteServiceLine(string service, string message)
+    public static void WriteServiceLog(string service, string message)
     {
         var color = ColorGenerator.FromName(service);
         var prefix = $"[bold {color.ToMarkup()}]{service}[/]";
+        var escaped = Markup.Escape(message);
 
-        AnsiConsole.MarkupLine($"[[{prefix}]]: {message}");
+        AnsiConsole.MarkupLine($"[[{prefix}]]: {escaped}");
     }
 
-    public static void WriteServiceErrorLine(string service, string message)
+    public static void WriteServiceErrorLog(string service, string message)
     {
         var color = ColorGenerator.FromName(service);
         var prefix = $"[bold {color.ToMarkup()}]{service}[/]";
+        var escaped = Markup.Escape(message);
 
-        AnsiConsole.MarkupLine($"[[{prefix}]][bold red][[!]][/]: {message}");
+        AnsiConsole.MarkupLine($"[[{prefix}]][bold red][[!]][/]: {escaped}");
     }
 
     public static void Empty() => AnsiConsole.MarkupLine("");
