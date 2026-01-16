@@ -1,1 +1,3 @@
-<Solution />
+<Solution>
+  <Project Path="src/KoshCLI/KoshCLI.csproj" />
+</Solution>

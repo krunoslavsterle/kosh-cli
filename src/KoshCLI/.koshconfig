@@ -1,0 +1,21 @@
+projectName: Kosh Test Project
+modulesPath: src/Modules
+
+services:
+  - name: api
+    type: dotnet
+    path: src/Api
+    args: "--urls http://localhost:5001"
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      CONNECTION_STRING: "Host=localhost;Port=5432;Database=api;"
+   
+docker:
+  composeFile: docker-compose.yml
+  autoStart: true
+
+hosts:
+  - domain: kosharica-test.local
+  - domain: api.kosharica-test.local
+  
+proxy: caddy
