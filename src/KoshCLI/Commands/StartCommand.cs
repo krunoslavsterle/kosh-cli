@@ -17,6 +17,8 @@ public class StartCommand : Command<StartCommand.Settings>
         CancellationToken cancellationToken
     )
     {
+        KoshConsole.Info($"Validating kosh project..");
+
         var osPlatformResult = SystemHelper.GetOsPlatform();
         if (osPlatformResult.IsFailed)
         {
@@ -25,7 +27,9 @@ public class StartCommand : Command<StartCommand.Settings>
         }
 
         // TODO: THIS IS ONLY FOR TESTING
-        var configResult = KoshConfigLoader.Load("/home/krunoslav/Workspace/test/kosh-test");
+        var configResult = KoshConfigLoader.Load(
+            "/home/krunoslav/Workspace/Work/kosh-test-project"
+        );
         if (configResult.IsFailed)
         {
             KoshConsole.Error(configResult.Errors[0].Message);
@@ -68,37 +72,55 @@ public class StartCommand : Command<StartCommand.Settings>
             Environment.Exit(1);
         }
 
+        KoshConsole.Success("Kosh project valid");
+
         SystemDomainsHelper.EnsureDomainsExists(configResult.Value.Hosts, osPlatformResult.Value);
 
-        KoshConsole.Info($"Starting {configResult.Value.ProjectName}...");
+        AnsiConsole
+            .Status()
+            .AutoRefresh(true)
+            .Spinner(Spinner.Known.Default)
+            .Start(
+                $"[yellow]Starting {configResult.Value.ProjectName}[/]",
+                ctx =>
+                {
+                    // MIGRATIONS
+                    KoshConsole.Info($"Running migrations...");
+                    Thread.Sleep(1000);
+                    // TODO: MigrationRunner.Run(config.ModulesPath);
+                    KoshConsole.Success($"Running migrations completed");
 
-        KoshConsole.Info($"Running migrations...");
-        // TODO: MigrationRunner.Run(config.ModulesPath);
-        KoshConsole.Success($"Running migrations completed");
-        
+                    // SERVICES
+                    ctx.Spinner(Spinner.Known.BouncingBar);
+                    ctx.Status("[bold blue]Starting services[/]");
+                    ServiceRunner.StartAll(configResult.Value.Services);
+                }
+            );
 
-        KoshConsole.Info($"Starting services...");
-        ServiceRunner.StartAll(configResult.Value.Services);
-        KoshConsole.Success($"Starting services completed");
-        
-        KoshConsole.Success($"{configResult.Value.ProjectName} started.");
-        
+        KoshConsole.Success($"{configResult.Value.ProjectName} ready!.");
+        KoshConsole.Empty();
+
         // TODO: Refactor
         Console.CancelKeyPress += (_, e) =>
         {
-            e.Cancel = true; 
+            e.Cancel = true;
             KoshConsole.Error("Stopping all services...");
-            
-            foreach (var p in ServiceRunner.Running) 
+
+            foreach (var p in ServiceRunner.Running)
             {
                 try
                 {
-                    p.Kill(true); 
-                    
-                } catch {} } Environment.Exit(0);
-        }; 
-        
+                    p.Kill(true);
+                }
+                catch { }
+            }
+            Environment.Exit(0);
+        };
+
         // TODO: REFACTOR
-        while (true) { Thread.Sleep(200); }
+        while (true)
+        {
+            Thread.Sleep(200);
+        }
     }
 }

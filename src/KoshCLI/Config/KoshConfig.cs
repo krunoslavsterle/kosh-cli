@@ -15,6 +15,7 @@ internal class ServiceConfig
     public string? Name { get; init; }
     public string? Type { get; init; }
     public string? Path { get; init; }
+    public bool? Logs { get; init; }
     public string? Args { get; init; }
     public Dictionary<string, string> Env { get; init; } = [];
 }

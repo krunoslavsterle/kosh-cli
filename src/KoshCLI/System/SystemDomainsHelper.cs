@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using KoshCLI.Config;
+using KoshCLI.Terminal;
 using Spectre.Console;
 
 namespace KoshCLI.System;
@@ -11,6 +12,8 @@ internal class SystemDomainsHelper
     {
         if (!hosts.Any())
             return;
+
+        KoshConsole.Info("Ensuring domains exist...");
 
         var hostsFilePath = GetHostsFilePath(osPlatform);
         var hostsContent = File.ReadAllText(hostsFilePath);
@@ -29,6 +32,8 @@ internal class SystemDomainsHelper
 
             InsertDomainsBash(hostsArgs);
         }
+
+        KoshConsole.Success("Domains exist");
     }
 
     private static string GetHostsFilePath(OSPlatform osPlatform)
