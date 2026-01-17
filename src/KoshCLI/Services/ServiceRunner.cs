@@ -43,6 +43,10 @@ internal static class ServiceRunner
                     DotnetRunServiceRunner.Start(service);
                     break;
 
+                case "node":
+                    NodeServiceRunner.Start(service);
+                    break;
+
                 case "caddy":
                     CaddyServiceRunner.Start(service);
                     break;
@@ -50,10 +54,6 @@ internal static class ServiceRunner
                 case "docker-compose":
                     DockerComposeRunner.Start(service, CancellationToken.None);
                     break;
-
-                // case "npm":
-                //     NpmServiceRunner.Start(service);
-                //     break;
 
                 default:
                     KoshConsole.Error(
