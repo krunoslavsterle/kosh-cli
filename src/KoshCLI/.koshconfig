@@ -1,21 +1,39 @@
 projectName: Kosh Test Project
-modulesPath: src/Modules
 
 services:
+  - name: infra 
+    type: docker-compose 
+    path: /home/krunoslav/Workspace/Work/kosh-test-project/devops/local
+    logs: true
+    
+  - name: gateway
+    type: caddy
+    logs: false
+    path: /home/krunoslav/Workspace/Work/kosh-test-project/devops/local
+    args: "--config Caddyfile"   
+    
+  - name: core-migration
+    type: dotnet-run
+    path: /home/krunoslav/Workspace/Work/kosh-test-project/src/apps/KoshTestProject.Console 
+        
   - name: api
-    type: dotnet
-    path: src/Api
-    args: "--urls http://localhost:5001"
+    type: dotnet-watch
+    path: /home/krunoslav/Workspace/Work/kosh-test-project/src/apps/KoshTestProject.Api
+    args: "--urls http://localhost:6001"
     env:
       ASPNETCORE_ENVIRONMENT: Development
-      CONNECTION_STRING: "Host=localhost;Port=5432;Database=api;"
-   
-docker:
-  composeFile: docker-compose.yml
-  autoStart: true
-
+      
+  - name: admin-api
+    type: dotnet-watch
+    path: /home/krunoslav/Workspace/Work/kosh-test-project/src/apps/KoshTestProject.Admin.Api
+    args: "--urls http://localhost:6002"
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      
+  - name: frontend-react
+    type: node
+    path: /home/krunoslav/Workspace/Work/kosh-test-project/src/apps/kosh-test-project-react
+      
 hosts:
-  - domain: kosharica-test.local
-  - domain: api.kosharica-test.local
-  
-proxy: caddy
+  - domain: kosh-test.api.localhost
+  - domain: kosh-test.localhost

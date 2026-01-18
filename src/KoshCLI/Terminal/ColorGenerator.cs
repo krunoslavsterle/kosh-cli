@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using Spectre.Console;
@@ -6,16 +7,11 @@ namespace KoshCLI.Terminal;
 
 internal static class ColorGenerator
 {
-    private static readonly Dictionary<string, Color> Cache = new();
+    private static readonly ConcurrentDictionary<string, Color> Cache = new();
 
     public static Color FromName(string name)
     {
-        if (Cache.TryGetValue(name, out var cached))
-            return cached;
-
-        var color = GenerateColor(name);
-        Cache[name] = color;
-        return color;
+        return Cache.GetOrAdd(name, GenerateColor(name));
     }
 
     private static Color GenerateColor(string name)

@@ -1,24 +1,39 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
+using FluentResults;
 using KoshCLI.Config;
 using KoshCLI.Terminal;
-using Spectre.Console;
 
-namespace KoshCLI.Services;
+namespace KoshCLI.Services.Docker;
 
-internal static class DockerComposeRunner
+internal class DockerComposeServiceRunner : IServiceRunner
 {
-    public static void Start(ServiceConfig service, CancellationToken token)
+    private readonly ServiceConfig _serviceConfig;
+
+    public DockerComposeServiceRunner(ServiceConfig config)
     {
-        var args = string.IsNullOrWhiteSpace(service.Args) ? "up" : service.Args;
+        _serviceConfig = config;
+    }
+
+    public bool ShouldStopOnExit { get; private set; }
+
+    public Result Setup()
+    {
+        ShouldStopOnExit = false;
+        return Result.Ok();
+    }
+
+    public void Start(CancellationToken ct)
+    {
+        var args = string.IsNullOrWhiteSpace(_serviceConfig.Args) ? "up" : _serviceConfig.Args;
 
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "docker",
-                Arguments = $"compose {args}",
-                WorkingDirectory = service.Path,
+                Arguments = $"compose {args} -d",
+                WorkingDirectory = _serviceConfig.Path,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -27,14 +42,14 @@ internal static class DockerComposeRunner
             EnableRaisingEvents = true,
         };
 
-        if (service.ShouldLog)
+        if (_serviceConfig.ShouldLog)
         {
             process.OutputDataReceived += (_, e) =>
             {
                 if (e.Data is null)
                     return;
 
-                KoshConsole.WriteServiceLog(service.Name!, e.Data);
+                KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
             };
 
             process.ErrorDataReceived += (_, e) =>
@@ -42,7 +57,7 @@ internal static class DockerComposeRunner
                 if (e.Data is null)
                     return;
 
-                KoshConsole.WriteServiceErrorLog(service.Name!, e.Data);
+                KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
             };
         }
 
@@ -51,16 +66,22 @@ internal static class DockerComposeRunner
         process.BeginErrorReadLine();
 
         // BLOCKING readiness check
-        WaitForComposeReady(service, token);
+        WaitForComposeReady(_serviceConfig, ct);
 
-        KoshConsole.Success($"Service [bold][[{service.Name}]][/] started.");
+        KoshConsole.Success($"Service [bold][[{_serviceConfig.Name}]][/] started.");
     }
 
-    private static void WaitForComposeReady(ServiceConfig service, CancellationToken token)
+    public void Dispose()
+    {
+        // TODO: IMPLEMENT DISPOSE METHOD.
+        KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, "Dispose method called!");
+    }
+
+    private static void WaitForComposeReady(ServiceConfig service, CancellationToken ct)
     {
         int lastCount = -1;
 
-        while (!token.IsCancellationRequested)
+        while (!ct.IsCancellationRequested)
         {
             var containers = GetComposeContainers(service.Path!);
 
@@ -104,9 +125,10 @@ internal static class DockerComposeRunner
             p.WaitForExit();
 
             if (string.IsNullOrWhiteSpace(output))
-                return new();
+                return [];
 
             JsonNode? node;
+
             try
             {
                 node = JsonNode.Parse(output);
@@ -137,11 +159,11 @@ internal static class DockerComposeRunner
                 return result;
             }
 
-            return new();
+            return [];
         }
         catch
         {
-            return new();
+            return [];
         }
     }
 }

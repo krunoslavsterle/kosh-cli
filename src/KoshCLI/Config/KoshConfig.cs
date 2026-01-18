@@ -10,7 +10,7 @@ internal class KoshConfig
     public List<ServiceConfig> Services { get; init; } = [];
 }
 
-internal class ServiceConfig
+public class ServiceConfig
 {
     public string? Name { get; init; }
     public string? Type { get; init; }

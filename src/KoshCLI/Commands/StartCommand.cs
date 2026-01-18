@@ -30,6 +30,7 @@ public class StartCommand : Command<StartCommand.Settings>
         var configResult = KoshConfigLoader.Load(
             "/home/krunoslav/Workspace/Work/kosh-test-project"
         );
+
         if (configResult.IsFailed)
         {
             KoshConsole.Error(configResult.Errors[0].Message);
@@ -76,20 +77,21 @@ public class StartCommand : Command<StartCommand.Settings>
 
         SystemDomainsHelper.EnsureDomainsExists(configResult.Value.Hosts, osPlatformResult.Value);
 
-        AnsiConsole
-            .Status()
-            .AutoRefresh(true)
-            .Spinner(Spinner.Known.Default)
-            .Start(
-                $"[yellow]Starting {configResult.Value.ProjectName}[/]",
-                ctx =>
-                {
-                    // SERVICES
-                    ctx.Spinner(Spinner.Known.BouncingBar);
-                    ctx.Status("[bold blue]Starting services[/]");
-                    ServiceRunner.StartAll(configResult.Value.Services);
-                }
-            );
+        // AnsiConsole
+        //     .Status()
+        //     .AutoRefresh(true)
+        //     .Spinner(Spinner.Known.Default).StartAsync(
+        //         $"[yellow]Starting {configResult.Value.ProjectName}[/]",
+        //         ctx =>
+        //         {
+        //             // SERVICES
+        //             ctx.Spinner(Spinner.Known.BouncingBar);
+        //             ctx.Status("[bold blue]Starting services[/]");
+        //             await ServiceRunner.StartAll(configResult.Value.Services);
+        //         }
+        //     );
+
+        ServiceExecutionManager.StartAll(configResult.Value.Services);
 
         KoshConsole.Success($"{configResult.Value.ProjectName} ready!.");
         KoshConsole.Empty();
@@ -99,15 +101,8 @@ public class StartCommand : Command<StartCommand.Settings>
         {
             e.Cancel = true;
             KoshConsole.Error("Stopping all services...");
-
-            foreach (var p in ServiceRunner.Running)
-            {
-                try
-                {
-                    p.Kill(true);
-                }
-                catch { }
-            }
+            ServiceExecutionManager.StopAll();
+            Thread.Sleep(500);
             Environment.Exit(0);
         };
 
