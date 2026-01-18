@@ -25,13 +25,11 @@ public static class KoshConsole
     public static void Empty() => AnsiConsole.MarkupLine("");
 
     public static void Info(string message) =>
-        AnsiConsole.MarkupLine(
-            $"[yellow]> [black on yellow] kosh [/] ! {Markup.Escape(message)}[/]"
-        );
+        AnsiConsole.MarkupLine($"[yellow]> [black on yellow] kosh [/] ! {message}[/]");
 
     public static void Error(string message) =>
         AnsiConsole.MarkupLine($"[red]> [black on red] kosh [/] ✗ {Markup.Escape(message)}[/]");
 
     public static void Success(string message) =>
-        AnsiConsole.MarkupLine($"[green]> [black on green] kosh [/] ✓ {Markup.Escape(message)}[/]");
+        AnsiConsole.MarkupLine($"[green]> [black on green] kosh [/] ✓ {message}[/]");
 }
