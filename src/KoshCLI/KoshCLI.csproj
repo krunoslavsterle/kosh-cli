@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>KoshCLI</RootNamespace>
-    <Version>0.1.0-alpha</Version>
+    <Version>0.1.5-alpha</Version>
   </PropertyGroup>
   <PropertyGroup>
     <PackAsTool>true</PackAsTool>
