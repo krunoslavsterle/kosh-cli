@@ -9,6 +9,7 @@ namespace KoshCLI.Services.Dotnet;
 public abstract class DotnetServiceRunnerBase
 {
     protected readonly ServiceConfig ServiceConfig;
+    private readonly string _workingDirectory;
     protected string MainDllPath = null!;
 
     private string _csprojPath = null!;
@@ -18,14 +19,15 @@ public abstract class DotnetServiceRunnerBase
 
     private Process? _process;
 
-    protected DotnetServiceRunnerBase(ServiceConfig serviceConfig)
+    protected DotnetServiceRunnerBase(ServiceConfig serviceConfig, string rootDirectory)
     {
         ServiceConfig = serviceConfig;
+        _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, ServiceConfig.Path!));
     }
 
     public Result Setup()
     {
-        var csprojPathResult = DotnetHelpers.ResolveCsprojPath(ServiceConfig.Path!);
+        var csprojPathResult = DotnetHelpers.ResolveCsprojPath(_workingDirectory);
         if (csprojPathResult.IsFailed)
             return csprojPathResult.ToResult();
 

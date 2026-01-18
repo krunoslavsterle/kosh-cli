@@ -8,11 +8,13 @@ namespace KoshCLI.Services.Proxy;
 internal class CaddyServiceRunner : IServiceRunner
 {
     private readonly ServiceConfig _serviceConfig;
+    private readonly string _workingDirectory;
     private Process? _process;
 
-    public CaddyServiceRunner(ServiceConfig config)
+    public CaddyServiceRunner(ServiceConfig config, string rootDirectory)
     {
         _serviceConfig = config;
+        _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, _serviceConfig.Path!));
         ShouldStopOnExit = true;
     }
 
@@ -35,7 +37,7 @@ internal class CaddyServiceRunner : IServiceRunner
             {
                 FileName = "caddy",
                 Arguments = args,
-                WorkingDirectory = _serviceConfig.Path,
+                WorkingDirectory = _workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

@@ -9,22 +9,22 @@ namespace KoshCLI.Services;
 
 internal static class ServiceRunnerFactory
 {
-    public static Result<IServiceRunner> Create(ServiceConfig config)
+    public static Result<IServiceRunner> Create(ServiceConfig config, string rootDirectory)
     {
         if (config.Type == ServiceRunnerType.DotnetWatch)
-            return new DotnetWatchServiceRunner(config);
+            return new DotnetWatchServiceRunner(config, rootDirectory);
 
         if (config.Type == ServiceRunnerType.DotnetRun)
-            return new DotnetRunServiceRunner(config);
+            return new DotnetRunServiceRunner(config, rootDirectory);
 
         if (config.Type == ServiceRunnerType.DockerCompose)
-            return new DockerComposeServiceRunner(config);
+            return new DockerComposeServiceRunner(config, rootDirectory);
 
         if (config.Type == ServiceRunnerType.Caddy)
-            return new CaddyServiceRunner(config);
+            return new CaddyServiceRunner(config, rootDirectory);
 
         if (config.Type == ServiceRunnerType.Node)
-            return new NodeServiceRunner(config);
+            return new NodeServiceRunner(config, rootDirectory);
 
         return Result.Fail($"Service type [{config.Type}] is not supported.");
     }

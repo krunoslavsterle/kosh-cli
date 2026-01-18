@@ -9,10 +9,12 @@ namespace KoshCLI.Services.Docker;
 internal class DockerComposeServiceRunner : IServiceRunner
 {
     private readonly ServiceConfig _serviceConfig;
+    private readonly string _workingDirectory;
 
-    public DockerComposeServiceRunner(ServiceConfig config)
+    public DockerComposeServiceRunner(ServiceConfig config, string rootDirectory)
     {
         _serviceConfig = config;
+        _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, _serviceConfig.Path!));
     }
 
     public bool ShouldStopOnExit { get; private set; }
@@ -27,13 +29,15 @@ internal class DockerComposeServiceRunner : IServiceRunner
     {
         var args = string.IsNullOrWhiteSpace(_serviceConfig.Args) ? "up" : _serviceConfig.Args;
 
+        KoshConsole.Info($"Starting docker-compose service [bold][[{_serviceConfig.Name}]][/] ...");
+
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "docker",
                 Arguments = $"compose {args} -d",
-                WorkingDirectory = _serviceConfig.Path,
+                WorkingDirectory = _workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -66,7 +70,7 @@ internal class DockerComposeServiceRunner : IServiceRunner
         process.BeginErrorReadLine();
 
         // BLOCKING readiness check
-        WaitForComposeReady(_serviceConfig, ct);
+        WaitForComposeReady(ct);
 
         KoshConsole.Success($"Service [bold][[{_serviceConfig.Name}]][/] started.");
     }
@@ -77,13 +81,13 @@ internal class DockerComposeServiceRunner : IServiceRunner
         KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, "Dispose method called!");
     }
 
-    private static void WaitForComposeReady(ServiceConfig service, CancellationToken ct)
+    private void WaitForComposeReady(CancellationToken ct)
     {
         int lastCount = -1;
 
         while (!ct.IsCancellationRequested)
         {
-            var containers = GetComposeContainers(service.Path!);
+            var containers = GetComposeContainers(_workingDirectory);
 
             if (containers.Count == 0)
             {

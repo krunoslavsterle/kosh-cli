@@ -26,10 +26,7 @@ public class StartCommand : Command<StartCommand.Settings>
             Environment.Exit(1);
         }
 
-        // TODO: THIS IS ONLY FOR TESTING
-        var configResult = KoshConfigLoader.Load(
-            "/home/krunoslav/Workspace/Work/kosh-test-project"
-        );
+        var configResult = KoshConfigLoader.Load();
 
         if (configResult.IsFailed)
         {
@@ -77,21 +74,7 @@ public class StartCommand : Command<StartCommand.Settings>
 
         SystemDomainsHelper.EnsureDomainsExists(configResult.Value.Hosts, osPlatformResult.Value);
 
-        // AnsiConsole
-        //     .Status()
-        //     .AutoRefresh(true)
-        //     .Spinner(Spinner.Known.Default).StartAsync(
-        //         $"[yellow]Starting {configResult.Value.ProjectName}[/]",
-        //         ctx =>
-        //         {
-        //             // SERVICES
-        //             ctx.Spinner(Spinner.Known.BouncingBar);
-        //             ctx.Status("[bold blue]Starting services[/]");
-        //             await ServiceRunner.StartAll(configResult.Value.Services);
-        //         }
-        //     );
-
-        ServiceExecutionManager.StartAll(configResult.Value.Services);
+        ServiceExecutionManager.StartAll(configResult.Value.Services, configResult.Value.Root!);
 
         KoshConsole.Success($"{configResult.Value.ProjectName} ready!.");
         KoshConsole.Empty();

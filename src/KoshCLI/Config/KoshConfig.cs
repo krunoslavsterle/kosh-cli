@@ -3,6 +3,7 @@ namespace KoshCLI.Config;
 internal class KoshConfig
 {
     public string? ProjectName { get; init; }
+    public string? Root { get; set; }
     public string? ModulesPath { get; init; }
     public string? Proxy { get; init; }
     public DockerConfig? Docker { get; init; }

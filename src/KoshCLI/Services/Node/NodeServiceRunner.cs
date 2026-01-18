@@ -8,11 +8,13 @@ namespace KoshCLI.Services.Node;
 internal class NodeServiceRunner : IServiceRunner
 {
     private readonly ServiceConfig _serviceConfig;
+    private readonly string _workingDirectory;
     private Process? _process;
 
-    public NodeServiceRunner(ServiceConfig config)
+    public NodeServiceRunner(ServiceConfig config, string rootDirectory)
     {
         _serviceConfig = config;
+        _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, _serviceConfig.Path!));
         ShouldStopOnExit = true;
     }
 
@@ -35,7 +37,7 @@ internal class NodeServiceRunner : IServiceRunner
             {
                 FileName = "npm",
                 Arguments = $"run {args}",
-                WorkingDirectory = _serviceConfig.Path!,
+                WorkingDirectory = _workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

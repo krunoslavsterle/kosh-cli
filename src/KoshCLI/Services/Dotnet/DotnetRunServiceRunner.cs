@@ -5,8 +5,8 @@ namespace KoshCLI.Services.Dotnet;
 
 public class DotnetRunServiceRunner : DotnetServiceRunnerBase, IServiceRunner
 {
-    public DotnetRunServiceRunner(ServiceConfig serviceConfig)
-        : base(serviceConfig)
+    public DotnetRunServiceRunner(ServiceConfig serviceConfig, string rootDirectory)
+        : base(serviceConfig, rootDirectory)
     {
         ShouldStopOnExit = false;
     }

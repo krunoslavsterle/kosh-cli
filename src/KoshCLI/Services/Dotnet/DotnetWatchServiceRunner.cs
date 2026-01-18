@@ -10,8 +10,8 @@ internal sealed class DotnetWatchServiceRunner : DotnetServiceRunnerBase, IServi
     private bool _isRestarting;
     private Timer? _watchTimer;
 
-    public DotnetWatchServiceRunner(ServiceConfig serviceConfig)
-        : base(serviceConfig)
+    public DotnetWatchServiceRunner(ServiceConfig serviceConfig, string rootDirectory)
+        : base(serviceConfig, rootDirectory)
     {
         ShouldStopOnExit = true;
     }

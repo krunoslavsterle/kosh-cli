@@ -7,7 +7,7 @@ internal static class ServiceExecutionManager
 {
     private static readonly List<IServiceRunner> _runningServices = [];
 
-    public static void StartAll(List<ServiceConfig> services)
+    public static void StartAll(List<ServiceConfig> services, string rootDirectory)
     {
         if (services.Count == 0)
         {
@@ -26,7 +26,7 @@ internal static class ServiceExecutionManager
                 continue;
             }
 
-            var serviceRunnerResult = ServiceRunnerFactory.Create(service);
+            var serviceRunnerResult = ServiceRunnerFactory.Create(service, rootDirectory);
             if (serviceRunnerResult.IsFailed)
             {
                 KoshConsole.Error(serviceRunnerResult.Errors.First().Message);
