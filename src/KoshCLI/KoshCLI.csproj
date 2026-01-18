@@ -8,7 +8,8 @@
     <ToolCommandName>kosh</ToolCommandName>
     <PackageId>kosh</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>0.1.1</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Version>0.1.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FluentResults" Version="4.0.0" />
@@ -29,5 +30,8 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="nupkg\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
