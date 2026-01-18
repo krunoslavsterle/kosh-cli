@@ -1,15 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>KoshCLI</RootNamespace>
+    <Version>0.1.0-alpha</Version>
+  </PropertyGroup>
+  <PropertyGroup>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>kosh</ToolCommandName>
     <PackageId>kosh</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Version>0.1.2</Version>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Authors>Krunoslav Šterle</Authors>
+    <Description>Lightweight cross-platform service orchestrator for smaller projects.</Description>
+    <Copyright>Copyright (c) Krunoslav Šterle</Copyright>
+    <PackageProjectUrl>https://github.com/krunoslavsterle/kosh-cli</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/krunoslavsterle/kosh-cli.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RollForward>Major</RollForward>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FluentResults" Version="4.0.0" />
