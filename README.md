@@ -48,6 +48,11 @@ Install the tool globally:
 dotnet tool install -g kosh
 ```
 
+Check the version
+```
+kosh version
+```
+
 If the command is recognized, you're ready to go.
 
 ## 🔄 Updating kosh
@@ -55,7 +60,7 @@ If the command is recognized, you're ready to go.
 To update to the latest version:
 
 ```bash
-dotnet tool update -g kosh --prerelease
+dotnet tool update -g kosh
 ```
 
 ## 🗑️ Uninstalling kosh
