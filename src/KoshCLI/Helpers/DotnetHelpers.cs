@@ -50,7 +50,7 @@ public static class DotnetHelpers
         if (File.Exists(projectPath) && projectPath.EndsWith(".csproj"))
             return projectPath;
 
-        if (!Directory.Exists((projectPath)))
+        if (!Directory.Exists(projectPath))
             return Result.Fail($"Project directory [{projectPath}] doesn't exist");
 
         var csprojs = Directory.GetFiles(projectPath, "*.csproj", SearchOption.TopDirectoryOnly);
@@ -66,7 +66,7 @@ public static class DotnetHelpers
 
     public static string ResolveOutputDirectory(string projectDirectory, string targetedFramework)
     {
-        // TODO: IMPLEMENT OVERRIDE IN .koshconfig
+        // TODO: IMPLEMENT OVERRIDE IN koshconfig.yaml
         return Path.GetFullPath(Path.Combine(projectDirectory, "bin", "Debug", targetedFramework));
     }
 
