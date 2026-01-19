@@ -11,7 +11,7 @@ internal static class ServiceExecutionManager
     {
         if (services.Count == 0)
         {
-            KoshConsole.Info("No services defined in .koshconfig.");
+            KoshConsole.Info($"No services defined in {Constants.ConfigFile}.");
             return;
         }
 

@@ -18,7 +18,7 @@ internal class CaddyServiceRunner : IServiceRunner
         ShouldStopOnExit = true;
     }
 
-    public bool ShouldStopOnExit { get; private set; }
+    public bool ShouldStopOnExit { get; }
 
     public Result Setup()
     {
@@ -40,8 +40,8 @@ internal class CaddyServiceRunner : IServiceRunner
                 WorkingDirectory = _workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false,
-            },
+                UseShellExecute = false
+            }
         };
 
         foreach (var kv in _serviceConfig.Env)
@@ -81,10 +81,9 @@ internal class CaddyServiceRunner : IServiceRunner
     public void Dispose()
     {
         if (_process is { HasExited: false })
-        {
             try
             {
-                _process.Kill(entireProcessTree: true);
+                _process.Kill(true);
                 _process.WaitForExit(5000);
             }
             catch (Exception ex)
@@ -93,7 +92,6 @@ internal class CaddyServiceRunner : IServiceRunner
                     $"Failed to stop node process (PID: {_process.Id}): {ex.Message}"
                 );
             }
-        }
 
         _process?.Dispose();
         _process = null;

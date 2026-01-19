@@ -6,15 +6,16 @@ namespace KoshCLI.Config;
 
 internal class KoshConfigLoader
 {
-    private const string ConfigFile = ".koshconfig";
-
     public static Result<KoshConfig> Load(string? configPath)
     {
-        if (!File.Exists(ConfigFile))
-            return Result.Fail(".koshconfig not found. Run kosh from project root.");
-        
-        configPath = configPath == null ? ConfigFile : Path.Combine(configPath, ConfigFile);
+        configPath =
+            configPath == null
+                ? Constants.ConfigFile
+                : Path.Combine(configPath, Constants.ConfigFile);
+
         var configFullPath = Path.GetFullPath(configPath);
+        if (!File.Exists(configFullPath))
+            return Result.Fail($"{Constants.ConfigFile} not found. Run kosh from project root.");
 
         var yaml = File.ReadAllText(configFullPath);
 
@@ -25,7 +26,7 @@ internal class KoshConfigLoader
         var config = deserializer.Deserialize<KoshConfig>(yaml);
         if (config == null!)
         {
-            return Result.Fail(".koshconfig file is not formatted properly");
+            return Result.Fail($"{Constants.ConfigFile} file is not formatted properly");
         }
 
         config.Root ??= Path.GetDirectoryName(configFullPath)!;

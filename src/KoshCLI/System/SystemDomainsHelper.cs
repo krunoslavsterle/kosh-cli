@@ -28,7 +28,7 @@ internal class SystemDomainsHelper
         if (hostsToInsert.Any())
         {
             var hostsArgs = string.Join(" ", hostsToInsert);
-            AnsiConsole.MarkupLine($"[bold yellow] Inserting hosts: {hostsArgs} ...[/]");
+            KoshConsole.Info($"Inserting hosts: {hostsArgs} ...");
 
             InsertDomainsBash(hostsArgs);
         }
@@ -48,7 +48,7 @@ internal class SystemDomainsHelper
 
         return "/etc/hosts";
     }
-    
+
     private static void InsertDomainsBash(string hostsArgs)
     {
         var exeDir = AppContext.BaseDirectory;
@@ -60,7 +60,9 @@ internal class SystemDomainsHelper
             {
                 FileName = "bash",
                 Arguments = $"{scriptPath} {hostsArgs}",
-                UseShellExecute = false
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             },
         };
 

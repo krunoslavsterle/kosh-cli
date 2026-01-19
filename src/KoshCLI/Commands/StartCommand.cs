@@ -13,7 +13,7 @@ public class StartCommand : Command<StartCommand.StartSettings>
     public class StartSettings : CommandSettings
     {
         [CommandOption("-c|--config <PATH>")]
-        [Description("Optional path to a custom .koshconfig file.")]
+        [Description($"Optional path to a custom {Constants.ConfigFile}")]
         public string? ConfigPath { get; set; }
     }
 

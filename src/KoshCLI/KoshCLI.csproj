@@ -32,10 +32,7 @@
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
   <ItemGroup>
-    <None Remove=".koshconfig" />
-    <Content Include=".koshconfig">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <None Remove="koshconfig.yaml" />
     <None Remove="Scripts\add-hosts.sh" />
     <Content Include="Scripts\add-hosts.sh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

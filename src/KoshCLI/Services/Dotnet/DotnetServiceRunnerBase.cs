@@ -8,16 +8,16 @@ namespace KoshCLI.Services.Dotnet;
 
 public abstract class DotnetServiceRunnerBase
 {
-    protected readonly ServiceConfig ServiceConfig;
     private readonly string _workingDirectory;
-    protected string MainDllPath = null!;
+    protected readonly ServiceConfig ServiceConfig;
 
     private string _csprojPath = null!;
-    private string _projectDirectory = null!;
-    private string _targetedFramework = null!;
     private string _outputDirectory = null!;
 
     private Process? _process;
+    private string _projectDirectory = null!;
+    private string _targetedFramework = null!;
+    protected string MainDllPath = null!;
 
     protected DotnetServiceRunnerBase(ServiceConfig serviceConfig, string rootDirectory)
     {
@@ -74,7 +74,6 @@ public abstract class DotnetServiceRunnerBase
     protected void Stop()
     {
         if (_process is { HasExited: false })
-        {
             try
             {
                 KoshConsole.WriteServiceLog(
@@ -82,7 +81,7 @@ public abstract class DotnetServiceRunnerBase
                     $"Stopping dotnet run (PID: {_process.Id})..."
                 );
 
-                _process.Kill(entireProcessTree: true);
+                _process.Kill(true);
                 _process.WaitForExit(5000);
             }
             catch (Exception ex)
@@ -92,7 +91,6 @@ public abstract class DotnetServiceRunnerBase
                     $"Failed to stop process: {ex.Message}"
                 );
             }
-        }
 
         _process?.Dispose();
         _process = null;
