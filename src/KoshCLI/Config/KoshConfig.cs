@@ -5,8 +5,6 @@ internal class KoshConfig
     public string? ProjectName { get; init; }
     public string? Root { get; set; }
     public string? ModulesPath { get; init; }
-    public string? Proxy { get; init; }
-    public DockerConfig? Docker { get; init; }
     public List<HostEntry> Hosts { get; init; } = [];
     public List<ServiceConfig> Services { get; init; } = [];
 }
@@ -21,12 +19,6 @@ public class ServiceConfig
     public Dictionary<string, string> Env { get; init; } = [];
 
     public bool ShouldLog => !Logs.HasValue || Logs.Value;
-}
-
-internal record DockerConfig
-{
-    public string? ComposeFile { get; init; }
-    public bool? AutoStart { get; init; }
 }
 
 internal record HostEntry

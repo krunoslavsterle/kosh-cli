@@ -17,16 +17,15 @@ internal static class SystemCommandsValidator
     {
         var result = new SystemCommandsValidationResult();
 
-        if (config.Docker is not null)
+        if (config.Services.Any(s => s.Type == "docker-compose"))
         {
             result.DockerValid = SystemCommandChecker.Exists("docker");
             result.DockerComposeValid = SystemCommandChecker.Exists("docker", "compose version");
         }
 
-        if (config.Proxy is not null)
+        if (config.Services.Any(s => s.Type == "caddy"))
         {
-            result.ProxyValid =
-                config.Proxy == "caddy" && SystemCommandChecker.Exists("caddy", "version");
+            result.ProxyValid = SystemCommandChecker.Exists("caddy", "version");
         }
 
         return result;
