@@ -22,8 +22,7 @@ public class InitCommand : Command<InitCommand.InitSettings>
             Environment.Exit(0);
         }
 
-        var configPath = Path.GetFullPath(Constants.InitConfigFile);
-        var yaml = File.ReadAllText(configPath);
+        var yaml = File.ReadAllText(Constants.InitConfigFile);
 
         File.WriteAllText(path, yaml);
 

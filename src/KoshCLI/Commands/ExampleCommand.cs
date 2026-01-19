@@ -13,8 +13,7 @@ public class ExampleCommand : Command<ExampleCommand.ExampleSettings>
         CancellationToken cancellationToken
     )
     {
-        var configPath = Path.GetFullPath(Constants.ExampleConfigFile);
-        var yaml = File.ReadAllText(configPath);
+        var yaml = File.ReadAllText(Constants.ExampleConfigFile);
 
         KoshConsole.Info($"\n\n{yaml}");
         return 0;
