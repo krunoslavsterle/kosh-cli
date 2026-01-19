@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using KoshCLI.Config;
 using KoshCLI.Services;
 using KoshCLI.System;
@@ -7,13 +8,18 @@ using Spectre.Console.Cli;
 
 namespace KoshCLI.Commands;
 
-public class StartCommand : Command<StartCommand.Settings>
+public class StartCommand : Command<StartCommand.StartSettings>
 {
-    public class Settings : CommandSettings { }
+    public class StartSettings : CommandSettings
+    {
+        [CommandOption("-c|--config <PATH>")]
+        [Description("Optional path to a custom .koshconfig file.")]
+        public string? ConfigPath { get; set; }
+    }
 
     public override int Execute(
         CommandContext context,
-        Settings settings,
+        StartSettings settings,
         CancellationToken cancellationToken
     )
     {
@@ -26,8 +32,7 @@ public class StartCommand : Command<StartCommand.Settings>
             Environment.Exit(1);
         }
 
-        var configResult = KoshConfigLoader.Load();
-
+        var configResult = KoshConfigLoader.Load(settings.ConfigPath);
         if (configResult.IsFailed)
         {
             KoshConsole.Error(configResult.Errors[0].Message);
