@@ -1,11 +1,11 @@
-# kosh-cli
+# kosh
 
-**kosh-cli** is a lightweight, fast, and developer-friendly tool for running and orchestrating multiple services (docker-compose, dotnet, node, caddy).  
+**kosh** is a lightweight, fast, and developer-friendly tool for running and orchestrating multiple services (docker-compose, dotnet, node, caddy).  
 It was created to solve a simple problem: **smaller projects often need a quick, zero‑friction way to start all their services at once**, without complex scripts, multiple terminals, or heavy tooling.
 
 ---
 
-## ✨ Why kosh-cli exists
+## ✨ Why kosh exists
 
 Large orchestration tools (like Aspire, Nx, etc.) are powerful but often overkill for smaller projects.  
 I needed something that:
@@ -20,7 +20,7 @@ I needed something that:
 
 # Installation Guide
 
-kosh-cli is distributed as a **.NET global tool** via NuGet.org.  
+kosh is distributed as a **.NET global tool** via NuGet.org.  
 This makes installation, updates, and removal extremely simple and fully cross‑platform.
 
 
@@ -37,46 +37,33 @@ Check your version:
 dotnet --version
 ```
 
-## 🚀 Installing kosh-cli
+## 🚀 Installing kosh
 Install the tool globally:
 
 ```bash
-dotnet tool install -g kosh-cli
-```
-
-After installation, verify that the tool is available:
-
-```bash
-kosh --version
+dotnet tool install -g kosh --prerelease
 ```
 
 If the command is recognized, you're ready to go.
 
-## 🔄 Updating kosh-cli
+## 🔄 Updating kosh
 To update to the latest version:
 
 ```bash
-dotnet tool update -g kosh-cli
+dotnet tool update -g kosh --prerelease
 ```
 
-## 🗑️ Uninstalling kosh-cli
+## 🗑️ Uninstalling kosh
 If you ever want to remove the tool:
 
 ```bash
-dotnet tool uninstall -g kosh-cli
-```
-
-## 🧪 Running without installing (optional)
-If you want to test the tool without installing it globally:
-
-```bash
-dotnet tool run kosh
+dotnet tool uninstall -g kosh
 ```
 
 ## 📝 Notes
 - After installation, ensure your .dotnet/tools directory is in your PATH.
 - On most systems, .NET adds this automatically.
-- kosh-cli works on Linux, macOS, and Windows.
+- kosh works on Linux, macOS, and Windows.
 
 # 🚀 Usage Guide (Step‑by‑Step)
 ## 1. Create and configure .koshconfig
@@ -144,7 +131,7 @@ Run:
 kosh start
 ```
 
-kosh-cli will launch every service defined in .koshconfig and show logs in the same terminal.
+kosh will launch every service defined in .koshconfig and show logs in the same terminal.
 
 ## 4. Stop all services
 To stop everything, simply press:
