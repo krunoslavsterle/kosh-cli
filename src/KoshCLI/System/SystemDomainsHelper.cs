@@ -48,19 +48,19 @@ internal class SystemDomainsHelper
 
         return "/etc/hosts";
     }
-
+    
     private static void InsertDomainsBash(string hostsArgs)
     {
-        // TODO: IMPLEMENT FOR WINDOWS
-        var path = Path.Combine(Directory.GetCurrentDirectory(), "Scripts", "add-hosts.sh");
+        var exeDir = AppContext.BaseDirectory;
+        var scriptPath = Path.Combine(exeDir, "Scripts", "add-hosts.sh");
 
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "bash",
-                Arguments = $"\"{path}\" {hostsArgs}",
-                UseShellExecute = false,
+                Arguments = $"{scriptPath} {hostsArgs}",
+                UseShellExecute = false
             },
         };
 

@@ -8,14 +8,15 @@ internal class KoshConfigLoader
 {
     private const string ConfigFile = ".koshconfig";
 
-    public static Result<KoshConfig> Load()
+    public static Result<KoshConfig> Load(string? configPath)
     {
         if (!File.Exists(ConfigFile))
             return Result.Fail(".koshconfig not found. Run kosh from project root.");
+        
+        configPath = configPath == null ? ConfigFile : Path.Combine(configPath, ConfigFile);
+        var configFullPath = Path.GetFullPath(configPath);
 
-        var configPath = Path.GetFullPath(".koshconfig");
-
-        var yaml = File.ReadAllText(configPath);
+        var yaml = File.ReadAllText(configFullPath);
 
         var deserializer = new DeserializerBuilder()
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -27,7 +28,7 @@ internal class KoshConfigLoader
             return Result.Fail(".koshconfig file is not formatted properly");
         }
 
-        config.Root ??= Path.GetDirectoryName(configPath)!;
+        config.Root ??= Path.GetDirectoryName(configFullPath)!;
         return config;
     }
 }
