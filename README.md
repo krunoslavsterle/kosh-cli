@@ -45,7 +45,7 @@ dotnet --version
 Install the tool globally:
 
 ```bash
-dotnet tool install -g kosh --prerelease
+dotnet tool install -g kosh
 ```
 
 If the command is recognized, you're ready to go.
