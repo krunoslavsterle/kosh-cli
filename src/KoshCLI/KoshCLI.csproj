@@ -33,7 +33,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Remove="koshconfig.yaml" />
+    <None Remove="Scripts\add-hosts.ps1" />
     <None Remove="Scripts\add-hosts.sh" />
+    <Content Include="Scripts\add-hosts.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Scripts\add-hosts.sh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
