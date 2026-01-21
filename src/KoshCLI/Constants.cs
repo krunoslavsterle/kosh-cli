@@ -9,6 +9,7 @@ public static class Constants
     public static string[] ServiceTypes =
     [
         "dotnet-watch",
+        "dotnet-watch-alt",
         "dotnet-run",
         "caddy",
         "docker-compose",

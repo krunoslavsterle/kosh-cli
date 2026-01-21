@@ -30,11 +30,15 @@ internal class ServiceValidator : AbstractValidator<ServiceConfig>
             .Must(t => Constants.ServiceTypes.Contains(t))
             .WithMessage(srv => $"[{srv.Name}] service type [{srv.Type}] is not supported");
 
-        // RuleFor(srv => srv.Path)
-        //     .Must(p => p != null && Directory.Exists(Path.GetFullPath(Path.Combine(root, p!))))
-        //     .WithName(srv => srv.Name)
-        //     .WithMessage(srv => $"[{srv.Name}] service path doesn't exist");
-
+        RuleFor(srv => srv.Path)
+            .Must(p => p != null)
+            .WithMessage(srv => $"[{srv.Name}] service path must be defined");
+        
+        RuleFor(srv => srv.Path)
+            .Must(p => p != null && (p.Contains('*') || p.Contains('?') || Directory.Exists(Path.GetFullPath(Path.Combine(root, p!)))))
+            .WithName(srv => srv.Name)
+            .WithMessage(srv => $"[{srv.Name}] service path doesn't exist");
+        
         When(
             service => service.Type == "dotnet-watch",
             () =>
