@@ -55,15 +55,15 @@ internal class DockerComposeServiceRunner : IServiceRunner
 
                 KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
             };
-
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data is null)
-                    return;
-
-                KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
-            };
         }
+        
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is null)
+                return;
+
+            KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
+        };
 
         process.Start();
         process.BeginOutputReadLine();

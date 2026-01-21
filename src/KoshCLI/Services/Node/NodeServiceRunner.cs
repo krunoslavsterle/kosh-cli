@@ -48,20 +48,20 @@ internal class NodeServiceRunner : IServiceRunner
         foreach (var kv in _serviceConfig.Env)
             _process.StartInfo.Environment[kv.Key] = kv.Value;
 
-        if (!_serviceConfig.Logs.HasValue || _serviceConfig.Logs.Value)
+        if (_serviceConfig.ShouldLog)
         {
             _process.OutputDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                     KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
             };
-
-            _process.ErrorDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
-            };
         }
+        
+        _process.ErrorDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+                KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
+        };
 
         try
         {

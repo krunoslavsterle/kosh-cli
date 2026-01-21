@@ -15,10 +15,16 @@ internal record DotnetProjectConfiguration(
 internal abstract class DotnetServiceRunnerBase
 {
     protected readonly ServiceConfig ServiceConfig;
+    private static string? _dotnetRoot;
 
     protected DotnetServiceRunnerBase(ServiceConfig serviceConfig)
     {
         ServiceConfig = serviceConfig;
+
+        if (!OperatingSystem.IsWindows() && _dotnetRoot == null)
+        {
+            _dotnetRoot = GetDotnetRoot();
+        }
     }
     
     public bool ShouldStopOnExit { get; protected set; }
@@ -46,7 +52,7 @@ internal abstract class DotnetServiceRunnerBase
     
     protected Process Watch(DotnetProjectConfiguration projectConfiguration)
     {
-        var args = $"watch --project {projectConfiguration.CsprojPath}";
+        var args = $"watch --project \"{projectConfiguration.CsprojPath}\"";
 
         if (ServiceConfig.Args is not null)
             args = $"{args} {ServiceConfig.Args}";
@@ -114,20 +120,31 @@ internal abstract class DotnetServiceRunnerBase
         {
             FileName = "dotnet",
             Arguments = args,
-            WorkingDirectory = projectDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-
-        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        process.OutputDataReceived += (_, e) =>
+        
+        if (!OperatingSystem.IsWindows())
         {
-            if (!string.IsNullOrEmpty(e.Data))
-                KoshConsole.WriteServiceLog(ServiceConfig.Name!, e.Data);
-        };
+            psi.Environment["DOTNET_ROOT"] = GetDotnetRoot();
+            psi.Environment["PATH"] =
+                psi.Environment["DOTNET_ROOT"] + ":" +
+                Environment.GetEnvironmentVariable("PATH");
+        }
+        
+        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
+        if (ServiceConfig.ShouldLog)
+        {
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    KoshConsole.WriteServiceLog(ServiceConfig.Name!, e.Data);
+            };
+        }
+        
         process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
@@ -139,5 +156,25 @@ internal abstract class DotnetServiceRunnerBase
         process.BeginErrorReadLine();
         
         return process;
+    }
+    
+    private static string GetDotnetRoot()
+    {
+        if (_dotnetRoot != null)
+            return _dotnetRoot;
+        
+        var dotnetPath = Process.Start(new ProcessStartInfo
+        {
+            FileName = "which",
+            Arguments = "dotnet",
+            RedirectStandardOutput = true,
+            UseShellExecute = false
+        })!.StandardOutput.ReadToEnd().Trim();
+
+        _dotnetRoot = Path.GetDirectoryName(
+            Path.GetDirectoryName(dotnetPath)
+        )!;
+        
+        return _dotnetRoot;
     }
 }
