@@ -27,7 +27,9 @@ internal class DockerComposeServiceRunner : IServiceRunner
 
     public void Start(CancellationToken ct)
     {
-        var args = string.IsNullOrWhiteSpace(_serviceConfig.Args) ? "up" : _serviceConfig.Args;
+        var args = string.IsNullOrWhiteSpace(_serviceConfig.Args)
+            ? "up --remove-orphans"
+            : _serviceConfig.Args;
 
         KoshConsole.Info($"Starting docker-compose service [bold][[{_serviceConfig.Name}]][/] ...");
 
@@ -84,9 +86,16 @@ internal class DockerComposeServiceRunner : IServiceRunner
     private void WaitForComposeReady(CancellationToken ct)
     {
         int lastCount = -1;
+        int checkCount = 0;
 
         while (!ct.IsCancellationRequested)
         {
+            if (++checkCount > 50)
+            {
+                KoshConsole.Error("Waiting for docker compose up for too long!");
+                Environment.Exit(1);
+            }
+
             var containers = GetComposeContainers(_workingDirectory);
 
             if (containers.Count == 0)
