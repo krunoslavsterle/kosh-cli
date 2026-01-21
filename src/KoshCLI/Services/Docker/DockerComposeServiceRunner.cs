@@ -33,20 +33,23 @@ internal class DockerComposeServiceRunner : IServiceRunner
 
         KoshConsole.Info($"Starting docker-compose service [bold][[{_serviceConfig.Name}]][/] ...");
 
-        var process = new Process
+        var psi = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = $"compose {args} -d",
-                WorkingDirectory = _workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-            EnableRaisingEvents = true,
+            FileName = "docker",
+            Arguments = $"compose {args} -d",
+            WorkingDirectory = _workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
         };
+
+        foreach (var env in _serviceConfig.Env)
+        {
+            psi.Environment[env.Key] = env.Value;
+        }
+
+        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
         if (_serviceConfig.ShouldLog)
         {
@@ -58,7 +61,7 @@ internal class DockerComposeServiceRunner : IServiceRunner
                 KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
             };
         }
-        
+
         process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data is null)

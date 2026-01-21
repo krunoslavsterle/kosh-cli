@@ -31,19 +31,23 @@ internal class NodeServiceRunner : IServiceRunner
 
         KoshConsole.Info($"Starting node service [bold][[{_serviceConfig.Name}]][/] ...");
 
-        _process = new Process
+        var psi = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "npm",
-                Arguments = $"run {args}",
-                WorkingDirectory = _workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
+            FileName = "npm",
+            Arguments = $"run {args}",
+            WorkingDirectory = _workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
         };
+
+        foreach (var env in _serviceConfig.Env)
+        {
+            psi.Environment[env.Key] = env.Value;
+        }
+
+        _process = new Process { StartInfo = psi };
 
         foreach (var kv in _serviceConfig.Env)
             _process.StartInfo.Environment[kv.Key] = kv.Value;
@@ -56,7 +60,7 @@ internal class NodeServiceRunner : IServiceRunner
                     KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
             };
         }
-        
+
         _process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))

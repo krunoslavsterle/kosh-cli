@@ -10,7 +10,8 @@ internal record DotnetProjectConfiguration(
     string ProjectDirectory,
     string CsprojPath,
     string TargetedFramework,
-    string OutputDirectory);
+    string OutputDirectory
+);
 
 internal abstract class DotnetServiceRunnerBase
 {
@@ -26,9 +27,8 @@ internal abstract class DotnetServiceRunnerBase
             _dotnetRoot = GetDotnetRoot();
         }
     }
-    
+
     public bool ShouldStopOnExit { get; protected set; }
-    
 
     protected Process Run(DotnetProjectConfiguration projectConfiguration, bool withBuild = true)
     {
@@ -49,7 +49,7 @@ internal abstract class DotnetServiceRunnerBase
 
         return process;
     }
-    
+
     protected Process Watch(DotnetProjectConfiguration projectConfiguration)
     {
         var args = $"watch --project \"{projectConfiguration.CsprojPath}\"";
@@ -90,7 +90,7 @@ internal abstract class DotnetServiceRunnerBase
 
         process.Dispose();
     }
-    
+
     protected Result<DotnetProjectConfiguration> CreateProjectConfiguration(string path)
     {
         var csprojPathResult = DotnetHelpers.ResolveCsprojPath(path);
@@ -110,8 +110,13 @@ internal abstract class DotnetServiceRunnerBase
             projectDirectory,
             targetedFramework
         );
-        
-        return new DotnetProjectConfiguration(projectDirectory, csprojPath, targetedFramework, outputDirectory);
+
+        return new DotnetProjectConfiguration(
+            projectDirectory,
+            csprojPath,
+            targetedFramework,
+            outputDirectory
+        );
     }
 
     private Process StartDotnetProcess(string projectDirectory, string args)
@@ -125,15 +130,19 @@ internal abstract class DotnetServiceRunnerBase
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        
+
         if (!OperatingSystem.IsWindows())
         {
             psi.Environment["DOTNET_ROOT"] = GetDotnetRoot();
             psi.Environment["PATH"] =
-                psi.Environment["DOTNET_ROOT"] + ":" +
-                Environment.GetEnvironmentVariable("PATH");
+                psi.Environment["DOTNET_ROOT"] + ":" + Environment.GetEnvironmentVariable("PATH");
         }
-        
+
+        foreach (var env in ServiceConfig.Env)
+        {
+            psi.Environment[env.Key] = env.Value;
+        }
+
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
         if (ServiceConfig.ShouldLog)
@@ -144,7 +153,7 @@ internal abstract class DotnetServiceRunnerBase
                     KoshConsole.WriteServiceLog(ServiceConfig.Name!, e.Data);
             };
         }
-        
+
         process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
@@ -154,27 +163,30 @@ internal abstract class DotnetServiceRunnerBase
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        
+
         return process;
     }
-    
+
     private static string GetDotnetRoot()
     {
         if (_dotnetRoot != null)
             return _dotnetRoot;
-        
-        var dotnetPath = Process.Start(new ProcessStartInfo
-        {
-            FileName = "which",
-            Arguments = "dotnet",
-            RedirectStandardOutput = true,
-            UseShellExecute = false
-        })!.StandardOutput.ReadToEnd().Trim();
 
-        _dotnetRoot = Path.GetDirectoryName(
-            Path.GetDirectoryName(dotnetPath)
-        )!;
-        
+        var dotnetPath = Process
+            .Start(
+                new ProcessStartInfo
+                {
+                    FileName = "which",
+                    Arguments = "dotnet",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                }
+            )!
+            .StandardOutput.ReadToEnd()
+            .Trim();
+
+        _dotnetRoot = Path.GetDirectoryName(Path.GetDirectoryName(dotnetPath))!;
+
         return _dotnetRoot;
     }
 }
