@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using FluentResults;
+using KoshCLI.Commands;
 using KoshCLI.Config;
+using KoshCLI.Helpers;
 using KoshCLI.Terminal;
 
 namespace KoshCLI.Services.Node;
@@ -28,6 +30,7 @@ internal class NodeServiceRunner : IServiceRunner
     public void Start(CancellationToken cancellationToken)
     {
         var args = BuildArguments(_serviceConfig);
+        var localEnv = EnvHelpers.LoadEnvFile(_workingDirectory);
 
         KoshConsole.Info($"Starting node service [bold][[{_serviceConfig.Name}]][/] ...");
 
@@ -43,8 +46,15 @@ internal class NodeServiceRunner : IServiceRunner
         };
 
         foreach (var env in _serviceConfig.Env)
-        {
             psi.Environment[env.Key] = env.Value;
+
+        foreach (var env in localEnv)
+            psi.Environment[env.Key] = env.Value;
+
+        if (_serviceConfig.InheritRootEnv)
+        {
+            foreach (var env in StartCommand.GlobalEnv)
+                psi.Environment[env.Key] = env.Value;
         }
 
         _process = new Process { StartInfo = psi };
@@ -52,7 +62,7 @@ internal class NodeServiceRunner : IServiceRunner
         foreach (var kv in _serviceConfig.Env)
             _process.StartInfo.Environment[kv.Key] = kv.Value;
 
-        if (_serviceConfig.ShouldLog)
+        if (_serviceConfig.Logs)
         {
             _process.OutputDataReceived += (_, e) =>
             {

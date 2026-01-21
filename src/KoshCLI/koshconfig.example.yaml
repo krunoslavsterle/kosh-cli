@@ -20,9 +20,8 @@ services:
     type: dotnet-watch
     path: ./src/apps/KoshTestProject.Api
     args: "--urls http://localhost:6001"
-    env:
-      ASPNETCORE_ENVIRONMENT: Development
-
+    inheritRootEnv: true
+    
   - name: admin-api
     type: dotnet-watch
     path: ./src/apps/KoshTestProject.Admin.Api

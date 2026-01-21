@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using KoshCLI.Config;
+using KoshCLI.Helpers;
 using KoshCLI.Services;
 using KoshCLI.System;
 using KoshCLI.Terminal;
@@ -10,6 +11,8 @@ namespace KoshCLI.Commands;
 
 public class StartCommand : Command<StartCommand.StartSettings>
 {
+    public static Dictionary<string, string> GlobalEnv { get; } = [];
+
     public class StartSettings : CommandSettings
     {
         [CommandOption("-c|--config <PATH>")]
@@ -49,6 +52,10 @@ public class StartCommand : Command<StartCommand.StartSettings>
 
             Environment.Exit(1);
         }
+
+        var globalEnvs = EnvHelpers.LoadEnvFile(settings.ConfigPath);
+        foreach (var env in globalEnvs)
+            GlobalEnv.TryAdd(env.Key, env.Value);
 
         var commandsValidationResult = SystemCommandsValidator.ValidateConfig(configResult.Value);
         if (!commandsValidationResult.IsValid)

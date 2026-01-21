@@ -14,11 +14,10 @@ public class ServiceConfig
     public string? Name { get; init; }
     public string? Type { get; init; }
     public string? Path { get; init; }
-    public bool? Logs { get; init; }
     public string? Args { get; init; }
+    public bool Logs { get; init; } = false;
+    public bool InheritRootEnv { get; init; } = false;
     public Dictionary<string, string> Env { get; init; } = [];
-
-    public bool ShouldLog => !Logs.HasValue || Logs.Value;
 }
 
 internal record HostEntry

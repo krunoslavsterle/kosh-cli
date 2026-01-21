@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using FluentResults;
+using KoshCLI.Commands;
 using KoshCLI.Config;
+using KoshCLI.Helpers;
 using KoshCLI.Terminal;
 
 namespace KoshCLI.Services.Proxy;
@@ -28,6 +30,7 @@ internal class CaddyServiceRunner : IServiceRunner
     public void Start(CancellationToken cancellationToken)
     {
         var args = BuildArguments(_serviceConfig);
+        var localEnv = EnvHelpers.LoadEnvFile(_workingDirectory);
 
         KoshConsole.Info($"Starting caddy service [bold][[{_serviceConfig.Name}]][/] ...");
 
@@ -40,14 +43,23 @@ internal class CaddyServiceRunner : IServiceRunner
                 WorkingDirectory = _workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                UseShellExecute = false
-            }
+                UseShellExecute = false,
+            },
         };
 
         foreach (var kv in _serviceConfig.Env)
             _process.StartInfo.Environment[kv.Key] = kv.Value;
 
-        if (!_serviceConfig.Logs.HasValue || _serviceConfig.Logs.Value)
+        foreach (var env in localEnv)
+            _process.StartInfo.Environment[env.Key] = env.Value;
+
+        if (_serviceConfig.InheritRootEnv)
+        {
+            foreach (var env in StartCommand.GlobalEnv)
+                _process.StartInfo.Environment[env.Key] = env.Value;
+        }
+
+        if (_serviceConfig.Logs)
         {
             _process.OutputDataReceived += (_, e) =>
             {

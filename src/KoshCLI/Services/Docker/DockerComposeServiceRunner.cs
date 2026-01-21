@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using FluentResults;
+using KoshCLI.Commands;
 using KoshCLI.Config;
+using KoshCLI.Helpers;
 using KoshCLI.Terminal;
 
 namespace KoshCLI.Services.Docker;
@@ -33,6 +35,8 @@ internal class DockerComposeServiceRunner : IServiceRunner
 
         KoshConsole.Info($"Starting docker-compose service [bold][[{_serviceConfig.Name}]][/] ...");
 
+        var localEnv = EnvHelpers.LoadEnvFile(_workingDirectory);
+
         var psi = new ProcessStartInfo
         {
             FileName = "docker",
@@ -45,13 +49,20 @@ internal class DockerComposeServiceRunner : IServiceRunner
         };
 
         foreach (var env in _serviceConfig.Env)
-        {
             psi.Environment[env.Key] = env.Value;
+
+        foreach (var env in localEnv)
+            psi.Environment[env.Key] = env.Value;
+
+        if (_serviceConfig.InheritRootEnv)
+        {
+            foreach (var env in StartCommand.GlobalEnv)
+                psi.Environment[env.Key] = env.Value;
         }
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
-        if (_serviceConfig.ShouldLog)
+        if (_serviceConfig.Logs)
         {
             process.OutputDataReceived += (_, e) =>
             {

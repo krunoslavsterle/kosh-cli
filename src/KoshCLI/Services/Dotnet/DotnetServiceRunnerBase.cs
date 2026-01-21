@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FluentResults;
+using KoshCLI.Commands;
 using KoshCLI.Config;
 using KoshCLI.Helpers;
 using KoshCLI.Terminal;
@@ -121,6 +122,8 @@ internal abstract class DotnetServiceRunnerBase
 
     private Process StartDotnetProcess(string projectDirectory, string args)
     {
+        var localEnv = EnvHelpers.LoadEnvFile(projectDirectory);
+
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -139,13 +142,20 @@ internal abstract class DotnetServiceRunnerBase
         }
 
         foreach (var env in ServiceConfig.Env)
-        {
             psi.Environment[env.Key] = env.Value;
+
+        foreach (var env in localEnv)
+            psi.Environment[env.Key] = env.Value;
+
+        if (ServiceConfig.InheritRootEnv)
+        {
+            foreach (var env in StartCommand.GlobalEnv)
+                psi.Environment[env.Key] = env.Value;
         }
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
-        if (ServiceConfig.ShouldLog)
+        if (ServiceConfig.Logs)
         {
             process.OutputDataReceived += (_, e) =>
             {
