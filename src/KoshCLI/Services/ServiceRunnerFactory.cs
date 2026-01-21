@@ -13,6 +13,9 @@ internal static class ServiceRunnerFactory
     {
         if (config.Type == ServiceRunnerType.DotnetWatch)
             return new DotnetWatchServiceRunner(config, rootDirectory);
+        
+        if (config.Type == ServiceRunnerType.DotnetWatchAlt)
+            return new DotnetWatchAltServiceRunner(config, rootDirectory);
 
         if (config.Type == ServiceRunnerType.DotnetRun)
             return new DotnetRunServiceRunner(config, rootDirectory);
@@ -34,6 +37,7 @@ internal static class ServiceRunnerType
 {
     public const string DotnetRun = "dotnet-run";
     public const string DotnetWatch = "dotnet-watch";
+    public const string DotnetWatchAlt = "dotnet-watch-alt";
     public const string DockerCompose = "docker-compose";
     public const string Caddy = "caddy";
     public const string Node = "node";

@@ -6,53 +6,27 @@ using KoshCLI.Terminal;
 
 namespace KoshCLI.Services.Dotnet;
 
-public abstract class DotnetServiceRunnerBase
+internal record DotnetProjectConfiguration(
+    string ProjectDirectory,
+    string CsprojPath,
+    string TargetedFramework,
+    string OutputDirectory);
+
+internal abstract class DotnetServiceRunnerBase
 {
-    private readonly string _workingDirectory;
     protected readonly ServiceConfig ServiceConfig;
 
-    private string _csprojPath = null!;
-    private string _outputDirectory = null!;
-
-    private Process? _process;
-    private string _projectDirectory = null!;
-    private string _targetedFramework = null!;
-    protected string MainDllPath = null!;
-
-    protected DotnetServiceRunnerBase(ServiceConfig serviceConfig, string rootDirectory)
+    protected DotnetServiceRunnerBase(ServiceConfig serviceConfig)
     {
         ServiceConfig = serviceConfig;
-        _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, ServiceConfig.Path!));
     }
+    
+    public bool ShouldStopOnExit { get; protected set; }
+    
 
-    public Result Setup()
+    protected Process Run(DotnetProjectConfiguration projectConfiguration, bool withBuild = true)
     {
-        var csprojPathResult = DotnetHelpers.ResolveCsprojPath(_workingDirectory);
-        if (csprojPathResult.IsFailed)
-            return csprojPathResult.ToResult();
-
-        _csprojPath = csprojPathResult.Value;
-        _projectDirectory = Path.GetDirectoryName(_csprojPath)!;
-
-        var targetedFrameworkResult = DotnetHelpers.DetectTargetFramework(_csprojPath);
-        if (targetedFrameworkResult.IsFailed)
-            return targetedFrameworkResult.ToResult();
-
-        _targetedFramework = targetedFrameworkResult.Value;
-
-        _outputDirectory = DotnetHelpers.ResolveOutputDirectory(
-            _projectDirectory,
-            _targetedFramework
-        );
-
-        MainDllPath = DotnetHelpers.ResolveMainDllPath(_outputDirectory, _csprojPath);
-
-        return Result.Ok();
-    }
-
-    protected void Start(bool withBuild = true, bool waitForExit = false)
-    {
-        var args = $"run --project \"{_csprojPath}\"";
+        var args = $"run --project {projectConfiguration.CsprojPath}";
 
         if (!withBuild)
             args = $"{args} --no-build";
@@ -60,29 +34,45 @@ public abstract class DotnetServiceRunnerBase
         if (ServiceConfig.Args is not null)
             args = $"{args} {ServiceConfig.Args}";
 
-        StartDotnetProcess(args);
+        var process = StartDotnetProcess(projectConfiguration.ProjectDirectory, args);
 
         KoshConsole.WriteServiceLog(
             ServiceConfig.Name!,
-            $"dotnet run started (PID: {_process!.Id})"
+            $"dotnet run started (PID: {process!.Id})"
         );
 
-        if (waitForExit)
-            _process.WaitForExit();
+        return process;
+    }
+    
+    protected Process Watch(DotnetProjectConfiguration projectConfiguration)
+    {
+        var args = $"watch --project {projectConfiguration.CsprojPath}";
+
+        if (ServiceConfig.Args is not null)
+            args = $"{args} {ServiceConfig.Args}";
+
+        var process = StartDotnetProcess(projectConfiguration.ProjectDirectory, args);
+
+        KoshConsole.WriteServiceLog(
+            ServiceConfig.Name!,
+            $"dotnet watch started (PID: {process!.Id})"
+        );
+
+        return process;
     }
 
-    protected void Stop()
+    protected void Stop(Process process)
     {
-        if (_process is { HasExited: false })
+        if (process is { HasExited: false })
             try
             {
                 KoshConsole.WriteServiceLog(
                     ServiceConfig.Name!,
-                    $"Stopping dotnet run (PID: {_process.Id})..."
+                    $"Stopping dotnet run (PID: {process.Id})..."
                 );
 
-                _process.Kill(true);
-                _process.WaitForExit(5000);
+                process.Kill(true);
+                process.WaitForExit(5000);
             }
             catch (Exception ex)
             {
@@ -92,38 +82,62 @@ public abstract class DotnetServiceRunnerBase
                 );
             }
 
-        _process?.Dispose();
-        _process = null;
+        process.Dispose();
+    }
+    
+    protected Result<DotnetProjectConfiguration> CreateProjectConfiguration(string path)
+    {
+        var csprojPathResult = DotnetHelpers.ResolveCsprojPath(path);
+        if (csprojPathResult.IsFailed)
+            return csprojPathResult.ToResult();
+
+        var csprojPath = csprojPathResult.Value;
+        var projectDirectory = Path.GetDirectoryName(csprojPath)!;
+
+        var targetedFrameworkResult = DotnetHelpers.DetectTargetFramework(csprojPath);
+        if (targetedFrameworkResult.IsFailed)
+            return targetedFrameworkResult.ToResult();
+
+        var targetedFramework = targetedFrameworkResult.Value;
+
+        var outputDirectory = DotnetHelpers.ResolveOutputDirectory(
+            projectDirectory,
+            targetedFramework
+        );
+        
+        return new DotnetProjectConfiguration(projectDirectory, csprojPath, targetedFramework, outputDirectory);
     }
 
-    private void StartDotnetProcess(string args)
+    private Process StartDotnetProcess(string projectDirectory, string args)
     {
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
             Arguments = args,
-            WorkingDirectory = _projectDirectory,
+            WorkingDirectory = projectDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
 
-        _process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        _process.OutputDataReceived += (_, e) =>
+        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        process.OutputDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
                 KoshConsole.WriteServiceLog(ServiceConfig.Name!, e.Data);
         };
 
-        _process.ErrorDataReceived += (_, e) =>
+        process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
                 KoshConsole.WriteServiceErrorLog(ServiceConfig.Name!, e.Data);
         };
 
-        _process.Start();
-        _process.BeginOutputReadLine();
-        _process.BeginErrorReadLine();
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        
+        return process;
     }
 }

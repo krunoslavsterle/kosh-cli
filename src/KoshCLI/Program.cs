@@ -3,6 +3,7 @@ using KoshCLI.Commands;
 using Spectre.Console.Cli;
 
 var app = new CommandApp();
+Console.WriteLine("PATH=" + Environment.GetEnvironmentVariable("PATH"));
 
 app.Configure(config =>
 {
