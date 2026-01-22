@@ -140,15 +140,15 @@ Displayed in console logs.
 
 A list of all services that kosh will start. Each service entry contains:
 
-| Field          | Req | Description                                                                                                     |
-|----------------|-----|-----------------------------------------------------------------------------------------------------------------|
-| **name**       | Y   | Unique identifier for the service (displayed in console logs)                                                   |
-| **type**       | Y   | Service Runner type (defines how the service is started)                                                        |
-| **path**       | Y   | Working directory of the service relative to the `koshconfig.yaml` file                                         |
-| **args**       | N   | Additional arguments passed to the runner                                                                       |
-| **env**        | N   | Environment variables passed to the runner                                                                      |
-| **inheritEnv** | N   | Flag indicating should the service inherit environment variables from glogal `.env` file (**false** by default) |
-| **logs**       | N   | Whether logs should be streamed to the terminal (**true** by default)                                           |
+| Field          | Req | Description                                                                                                |
+|----------------|-----|------------------------------------------------------------------------------------------------------------|
+| **name**       | Y   | Unique identifier for the service (displayed in console logs)                                              |
+| **type**       | Y   | Service Runner type (defines how the service is started)                                                   |
+| **path**       | Y   | Working directory of the service relative to the `koshconfig.yaml` file                                    |
+| **args**       | N   | Additional arguments passed to the runner                                                                  |
+| **env**        | N   | Environment variables passed to the runner                                                                 |
+| **inheritEnv** | N   | Flag indicating should a service inherit environment variables from a global `.env` (**false** by default) |
+| **logs**       | N   | Whether logs should be streamed to the terminal (**true** by default)                                      |
 
 ---
 
