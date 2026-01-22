@@ -51,6 +51,7 @@ dotnet tool install -g kosh
 ```
 
 Check the version
+
 ```
 kosh version
 ```
@@ -58,6 +59,7 @@ kosh version
 If the command is recognized, you're ready to go.
 
 ***NOTE:**
+
 - After installation, ensure your .dotnet/tools directory is in your PATH.
 - On most systems, .NET adds this automatically.
 - kosh works on Linux, macOS, and Windows.
@@ -66,9 +68,10 @@ If the command is recognized, you're ready to go.
 
 # 📦 Project Configuration - koshconfig.yaml
 
-`koshconfig.yaml` is the central configuration file used by kosh.  
+`koshconfig.yaml` is the central configuration file used by kosh.
 
 It defines:
+
 - the project name
 - all services that kosh should start
 - local development domains
@@ -88,7 +91,7 @@ services:
   - name: infra
     type: docker-compose
     path: ./devops/local
-    logs: true
+    logs: false
 
   - name: gateway
     type: caddy
@@ -99,6 +102,7 @@ services:
   - name: core-migration
     type: dotnet-run
     path: ./src/apps/KoshTestProject.Console
+    inheritEnv: true
 
   - name: api
     type: dotnet-watch
@@ -122,31 +126,36 @@ hosts:
   - domain: kosh-test.api.localhost
   - domain: kosh-test.localhost
 ```
+
 ---
 
 ### 1) projectName
+
 Human‑readable name of the project.
 Displayed in console logs.
 
 ---
 
 ### 2) services
+
 A list of all services that kosh will start. Each service entry contains:
 
-| Field     | Req | Description                                                             |
-|-----------|-----|-------------------------------------------------------------------------|
-| **name**  | Y   | Unique identifier for the service (displayed in console logs)           |
-| **type**  | Y   | Service Runner type (defines how the service is started)                |
-| **path**  | Y   | Working directory of the service relative to the `koshconfig.yaml` file |
-| **args**  | N   | Additional arguments passed to the runner                               |
-| **env**   | N   | Environment variables passed to the runner                              |
-| **logs**  | N   | Whether logs should be streamed to the terminal                         |
+| Field          | Req | Description                                                                                                     |
+|----------------|-----|-----------------------------------------------------------------------------------------------------------------|
+| **name**       | Y   | Unique identifier for the service (displayed in console logs)                                                   |
+| **type**       | Y   | Service Runner type (defines how the service is started)                                                        |
+| **path**       | Y   | Working directory of the service relative to the `koshconfig.yaml` file                                         |
+| **args**       | N   | Additional arguments passed to the runner                                                                       |
+| **env**        | N   | Environment variables passed to the runner                                                                      |
+| **inheritEnv** | N   | Flag indicating should the service inherit environment variables from glogal `.env` file (**false** by default) |
+| **logs**       | N   | Whether logs should be streamed to the terminal (**true** by default)                                           |
 
 ---
 
 ### 3) hosts
 
-Defines a local development domains that can be used by reverse proxy. It will insert these domains to the **.hosts** file. On Linux/MacOS it will ask you for the user password to do that and on Windows it will
+Defines a local development domains that can be used by reverse proxy. It will insert these domains to the **.hosts**
+file. On Linux/MacOS it will ask you for the user password to do that and on Windows it will
 open the confirmation window.
 
 ---
@@ -192,12 +201,14 @@ I like to use it this way because it will handle the local ssl certificates auto
     path: ./src/apps/KoshTest.*.Migrations
 ```
 
-Runs `dotnet run` once and will pause with the services execution until it is completed. 
+Runs `dotnet run` once and will pause with the services execution until it is completed.
 
 Ideal for migrations and similar jobs.
 
-****NOTE:*** `dotnet-run` is currently the only service that supports `globbing` directory or file pattern matching. In the example above
-all migration projects that matches the provided pattern will be executed in parallel and execution of the registered services will be
+****NOTE:*** `dotnet-run` is currently the only service that supports `globbing` directory or file pattern matching. In
+the example above
+all migration projects that matches the provided pattern will be executed in parallel and execution of the registered
+services will be
 stopped until all migrations are completed successfully.
 
 ---
@@ -213,7 +224,8 @@ stopped until all migrations are completed successfully.
     ASPNETCORE_ENVIRONMENT: Development
 ```
 
-Runs `dotnet watch run` with **hot reload** enabled by default. To disable **hot reload** pass the '--no-hot-reload' to the args
+Runs `dotnet watch run` with **hot reload** enabled by default. To disable **hot reload** pass the '--no-hot-reload' to
+the args
 
 ---
 
@@ -228,8 +240,10 @@ Runs `dotnet watch run` with **hot reload** enabled by default. To disable **hot
     ASPNETCORE_ENVIRONMENT: Development
 ```
 
-Runs **kosh** alternative implementation for the `dotnet watch run`. On some occasions I had an issue with running `dotnet watch run` as a child 
-process of a console. Because of that I created an alternative mechanism that uses `dotnet run` and restarts when a change on the project DLL file
+Runs **kosh** alternative implementation for the `dotnet watch run`. On some occasions I had an issue with running
+`dotnet watch run` as a child
+process of a console. Because of that I created an alternative mechanism that uses `dotnet run` and restarts when a
+change on the project DLL file
 is detected. That means, it will restart the service when you rebuild the project after making a change in the code.
 
 ---
@@ -244,7 +258,78 @@ is detected. That means, it will restart the service when you rebuild the projec
 
 Runs a **Node-based** application using the `npm run` command (React, Angular, Next.js, etc.).
 
-***NOTE:** by default (if no **args** are provided) it will run using the **dev** arg like this: `npm run dev` but you can override it using the **args** field.
+***NOTE:** by default (if no **args** are provided) it will run using the **dev** arg like this: `npm run dev` but you
+can override it using the **args** field.
+
+---
+
+# 🌱 Environment Variables
+
+**kosh** supports three sources of environment variables (all are optional):
+
+- environment variables defined directly in `koshconfig.yaml`
+- `.env` file located inside each service’s working directory
+- global `.env` file located in the root of the project (applied for services with flag `inheritEnv: true`)
+
+Environment variables from these sources are merged in a deterministic order to ensure predictable behavior.
+
+---
+
+## 1. Environment variables in koshconfig.yaml
+
+Each service can define its own environment variables directly in the configuration:
+
+```yaml
+services:
+  - name: api
+    type: dotnet-watch
+    path: ./src/apps/Api
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      API_PORT: "6001"
+
+```
+
+***NOTE:** These have the **highest priority** in case you define same variable from multiple different sources.
+
+---
+
+## 2. Service local .env file (applied automatically)
+
+If a service’s working directory contains a `.env` file, **kosh** automatically loads it and applies its variables to
+that service:
+
+`src/apps/Api/.env`
+
+These variables are applied **after** environment variables defined in the `koshconfig.yaml` (**only if the variable
+does not already exist**).
+
+---
+
+## 3. Global .env file (opt‑in)
+
+If the root directory of your solution contains a .env file, kosh loads it into memory:
+
+```
+/.env
+/koshconfig.yaml
+```
+
+A service will inherit variables from the global `.env` only if it explicitly enables it in `koshconfig.yaml` with a
+flag: `inheritEnv: true`
+
+Example:
+
+```yaml
+services:
+  - name: api
+    type: dotnet-watch
+    path: ./src/apps/Api
+    inheritEnv: true
+```
+
+Global `.env` variables have the **lowest priority** and are applied only if the service does not already define a
+variable with the same name.
 
 ---
 

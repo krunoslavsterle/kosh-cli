@@ -19,8 +19,6 @@ internal class DotnetRunServiceRunner : DotnetServiceRunnerBase, IServiceRunner
     public DotnetRunServiceRunner(ServiceConfig serviceConfig, string rootDirectory)
         : base(serviceConfig)
     {
-        ShouldStopOnExit = false;
-
         _rootDirectory = rootDirectory;
         _isGlobPath = serviceConfig.Path!.Contains('*') || serviceConfig.Path.Contains('?');
     }

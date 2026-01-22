@@ -14,7 +14,6 @@ internal sealed class DotnetWatchServiceRunner : DotnetServiceRunnerBase, IServi
     public DotnetWatchServiceRunner(ServiceConfig serviceConfig, string rootDirectory)
         : base(serviceConfig)
     {
-        ShouldStopOnExit = false;
         _rootDirectory = rootDirectory;
     }
     

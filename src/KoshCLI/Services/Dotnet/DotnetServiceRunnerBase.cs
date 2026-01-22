@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using FluentResults;
-using KoshCLI.Commands;
 using KoshCLI.Config;
 using KoshCLI.Helpers;
 using KoshCLI.Terminal;
@@ -28,8 +27,6 @@ internal abstract class DotnetServiceRunnerBase
             _dotnetRoot = GetDotnetRoot();
         }
     }
-
-    public bool ShouldStopOnExit { get; protected set; }
 
     protected Process Run(DotnetProjectConfiguration projectConfiguration, bool withBuild = true)
     {
@@ -122,8 +119,6 @@ internal abstract class DotnetServiceRunnerBase
 
     private Process StartDotnetProcess(string projectDirectory, string args)
     {
-        var localEnv = EnvHelpers.LoadEnvFile(projectDirectory);
-
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -141,34 +136,10 @@ internal abstract class DotnetServiceRunnerBase
                 psi.Environment["DOTNET_ROOT"] + ":" + Environment.GetEnvironmentVariable("PATH");
         }
 
-        foreach (var env in ServiceConfig.Env)
-            psi.Environment[env.Key] = env.Value;
-
-        foreach (var env in localEnv)
-            psi.Environment[env.Key] = env.Value;
-
-        if (ServiceConfig.InheritRootEnv)
-        {
-            foreach (var env in StartCommand.GlobalEnv)
-                psi.Environment[env.Key] = env.Value;
-        }
+        psi.LoadEnvs(ServiceConfig, projectDirectory);
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-
-        if (ServiceConfig.Logs)
-        {
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceLog(ServiceConfig.Name!, e.Data);
-            };
-        }
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                KoshConsole.WriteServiceErrorLog(ServiceConfig.Name!, e.Data);
-        };
+        process.SetupConsoleLogs(ServiceConfig, errorLogsByDefault: true);
 
         process.Start();
         process.BeginOutputReadLine();

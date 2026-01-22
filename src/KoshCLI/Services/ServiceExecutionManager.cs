@@ -5,7 +5,7 @@ namespace KoshCLI.Services;
 
 internal static class ServiceExecutionManager
 {
-    private static readonly List<IServiceRunner> _runningServices = [];
+    private static readonly List<IServiceRunner> RunningServices = [];
 
     public static void StartAll(List<ServiceConfig> services, string rootDirectory)
     {
@@ -19,7 +19,6 @@ internal static class ServiceExecutionManager
         {
             if (service.Type is null || service.Name is null)
             {
-                // TODO: MAYBE STOP HERE?
                 KoshConsole.Error(
                     "Invalid service entry in config (missing name or type). Skipping."
                 );
@@ -45,16 +44,15 @@ internal static class ServiceExecutionManager
             }
 
             serviceRunner.Start(CancellationToken.None); // TODO: IMPLEMENT CANCELLATION TOKEN.
-            _runningServices.Add(serviceRunner);
+            RunningServices.Add(serviceRunner);
         }
     }
 
     public static void StopAll()
     {
-        foreach (var service in _runningServices)
+        foreach (var service in RunningServices)
         {
-            if (service.ShouldStopOnExit)
-                service.Dispose();
+            service.Dispose();
         }
     }
 }

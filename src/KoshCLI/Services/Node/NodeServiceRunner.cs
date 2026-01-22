@@ -17,7 +17,6 @@ internal class NodeServiceRunner : IServiceRunner
     {
         _serviceConfig = config;
         _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, _serviceConfig.Path!));
-        ShouldStopOnExit = true;
     }
 
     public bool ShouldStopOnExit { get; private set; }
@@ -30,7 +29,6 @@ internal class NodeServiceRunner : IServiceRunner
     public void Start(CancellationToken cancellationToken)
     {
         var args = BuildArguments(_serviceConfig);
-        var localEnv = EnvHelpers.LoadEnvFile(_workingDirectory);
 
         KoshConsole.Info($"Starting node service [bold][[{_serviceConfig.Name}]][/] ...");
 
@@ -45,37 +43,10 @@ internal class NodeServiceRunner : IServiceRunner
             CreateNoWindow = true,
         };
 
-        foreach (var env in _serviceConfig.Env)
-            psi.Environment[env.Key] = env.Value;
-
-        foreach (var env in localEnv)
-            psi.Environment[env.Key] = env.Value;
-
-        if (_serviceConfig.InheritRootEnv)
-        {
-            foreach (var env in StartCommand.GlobalEnv)
-                psi.Environment[env.Key] = env.Value;
-        }
+        psi.LoadEnvs(_serviceConfig, _workingDirectory);
 
         _process = new Process { StartInfo = psi };
-
-        foreach (var kv in _serviceConfig.Env)
-            _process.StartInfo.Environment[kv.Key] = kv.Value;
-
-        if (_serviceConfig.Logs)
-        {
-            _process.OutputDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
-            };
-        }
-
-        _process.ErrorDataReceived += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
-        };
+        _process.SetupConsoleLogs(_serviceConfig, errorLogsByDefault: true);
 
         try
         {

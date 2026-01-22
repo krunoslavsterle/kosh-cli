@@ -15,8 +15,8 @@ public class ServiceConfig
     public string? Type { get; init; }
     public string? Path { get; init; }
     public string? Args { get; init; }
-    public bool Logs { get; init; } = false;
-    public bool InheritRootEnv { get; init; } = false;
+    public bool Logs { get; init; } = true;
+    public bool InheritEnv { get; init; } = false;
     public Dictionary<string, string> Env { get; init; } = [];
 }
 

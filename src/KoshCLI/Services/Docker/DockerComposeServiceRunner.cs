@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using FluentResults;
-using KoshCLI.Commands;
 using KoshCLI.Config;
 using KoshCLI.Helpers;
 using KoshCLI.Terminal;
@@ -12,6 +11,7 @@ internal class DockerComposeServiceRunner : IServiceRunner
 {
     private readonly ServiceConfig _serviceConfig;
     private readonly string _workingDirectory;
+    private Process? _process;
 
     public DockerComposeServiceRunner(ServiceConfig config, string rootDirectory)
     {
@@ -19,11 +19,8 @@ internal class DockerComposeServiceRunner : IServiceRunner
         _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, _serviceConfig.Path!));
     }
 
-    public bool ShouldStopOnExit { get; private set; }
-
     public Result Setup()
     {
-        ShouldStopOnExit = false;
         return Result.Ok();
     }
 
@@ -34,8 +31,6 @@ internal class DockerComposeServiceRunner : IServiceRunner
             : _serviceConfig.Args;
 
         KoshConsole.Info($"Starting docker-compose service [bold][[{_serviceConfig.Name}]][/] ...");
-
-        var localEnv = EnvHelpers.LoadEnvFile(_workingDirectory);
 
         var psi = new ProcessStartInfo
         {
@@ -48,42 +43,14 @@ internal class DockerComposeServiceRunner : IServiceRunner
             CreateNoWindow = true,
         };
 
-        foreach (var env in _serviceConfig.Env)
-            psi.Environment[env.Key] = env.Value;
+        psi.LoadEnvs(_serviceConfig, _workingDirectory);
 
-        foreach (var env in localEnv)
-            psi.Environment[env.Key] = env.Value;
+        _process= new Process { StartInfo = psi, EnableRaisingEvents = true };
+        _process.SetupConsoleLogs(_serviceConfig, errorLogsByDefault: true);
 
-        if (_serviceConfig.InheritRootEnv)
-        {
-            foreach (var env in StartCommand.GlobalEnv)
-                psi.Environment[env.Key] = env.Value;
-        }
-
-        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-
-        if (_serviceConfig.Logs)
-        {
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data is null)
-                    return;
-
-                KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
-            };
-        }
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is null)
-                return;
-
-            KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        _process.Start();
+        _process.BeginOutputReadLine();
+        _process.BeginErrorReadLine();
 
         // BLOCKING readiness check
         WaitForComposeReady(ct);
@@ -93,8 +60,24 @@ internal class DockerComposeServiceRunner : IServiceRunner
 
     public void Dispose()
     {
-        // TODO: IMPLEMENT DISPOSE METHOD.
-        KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, "Dispose method called!");
+        if (_process is { HasExited: false })
+        {
+            try
+            {
+                _process.Kill(true);
+                _process.WaitForExit(5000);
+            }
+            catch (Exception ex)
+            {
+                KoshConsole.WriteServiceErrorLog(
+                    _serviceConfig.Name!,
+                    $"Failed to stop process: {ex.Message}"
+                );
+            }
+        }
+        
+        _process?.Dispose();
+        _process = null;
     }
 
     private void WaitForComposeReady(CancellationToken ct)

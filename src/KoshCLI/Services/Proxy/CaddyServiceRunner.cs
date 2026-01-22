@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using FluentResults;
-using KoshCLI.Commands;
 using KoshCLI.Config;
 using KoshCLI.Helpers;
 using KoshCLI.Terminal;
@@ -17,10 +16,7 @@ internal class CaddyServiceRunner : IServiceRunner
     {
         _serviceConfig = config;
         _workingDirectory = Path.GetFullPath(Path.Combine(rootDirectory, _serviceConfig.Path!));
-        ShouldStopOnExit = true;
     }
-
-    public bool ShouldStopOnExit { get; }
 
     public Result Setup()
     {
@@ -30,7 +26,6 @@ internal class CaddyServiceRunner : IServiceRunner
     public void Start(CancellationToken cancellationToken)
     {
         var args = BuildArguments(_serviceConfig);
-        var localEnv = EnvHelpers.LoadEnvFile(_workingDirectory);
 
         KoshConsole.Info($"Starting caddy service [bold][[{_serviceConfig.Name}]][/] ...");
 
@@ -47,34 +42,10 @@ internal class CaddyServiceRunner : IServiceRunner
             },
         };
 
-        foreach (var kv in _serviceConfig.Env)
-            _process.StartInfo.Environment[kv.Key] = kv.Value;
+       _process.StartInfo.LoadEnvs(_serviceConfig, _workingDirectory);
+       _process.SetupConsoleLogs(_serviceConfig, errorLogsByDefault: false);
 
-        foreach (var env in localEnv)
-            _process.StartInfo.Environment[env.Key] = env.Value;
-
-        if (_serviceConfig.InheritRootEnv)
-        {
-            foreach (var env in StartCommand.GlobalEnv)
-                _process.StartInfo.Environment[env.Key] = env.Value;
-        }
-
-        if (_serviceConfig.Logs)
-        {
-            _process.OutputDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceLog(_serviceConfig.Name!, e.Data);
-            };
-
-            _process.ErrorDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    KoshConsole.WriteServiceErrorLog(_serviceConfig.Name!, e.Data);
-            };
-        }
-
-        try
+       try
         {
             _process.Start();
             _process.BeginOutputReadLine();
@@ -101,7 +72,7 @@ internal class CaddyServiceRunner : IServiceRunner
             catch (Exception ex)
             {
                 KoshConsole.Error(
-                    $"Failed to stop node process (PID: {_process.Id}): {ex.Message}"
+                    $"Failed to stop caddy process (PID: {_process.Id}): {ex.Message}"
                 );
             }
 

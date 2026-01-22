@@ -83,12 +83,12 @@ public class StartCommand : Command<StartCommand.StartSettings>
         }
 
         KoshConsole.Success("Kosh project valid");
+        KoshConsole.Empty();
 
         SystemDomainsHelper.EnsureDomainsExists(configResult.Value.Hosts, osPlatformResult.Value);
 
         ServiceExecutionManager.StartAll(configResult.Value.Services, configResult.Value.Root!);
 
-        KoshConsole.Success($"{configResult.Value.ProjectName} ready!.");
         KoshConsole.Empty();
 
         // TODO: Refactor

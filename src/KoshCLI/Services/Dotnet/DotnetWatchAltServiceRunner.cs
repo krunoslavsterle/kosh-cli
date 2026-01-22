@@ -22,7 +22,6 @@ internal class DotnetWatchAltServiceRunner: DotnetServiceRunnerBase, IServiceRun
     public DotnetWatchAltServiceRunner(ServiceConfig serviceConfig, string rootDirectory)
         : base(serviceConfig)
     {
-        ShouldStopOnExit = true;
         _rootDirectory = rootDirectory;
     }
     
