@@ -33,13 +33,27 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 
         var supervisor = new Supervisor.Supervisor(configDefinition, new RunnerFactory());
 
-        // Subscribe to events
+        // Subscribe to Service events
+        supervisor.GroupEvents.Subscribe(runtime =>
+        {
+            KoshConsole.WriteServiceLog(runtime.Definition.Name, runtime.Status.ToString());
+        });
+        
+        // Subscribe to Service events
         supervisor.ServiceEvents.Subscribe(runtime =>
         {
             KoshConsole.WriteServiceLog(runtime.Definition.Name, runtime.Status.ToString());
         });
         
-        supervisor.LogEvents.Subscribe(log =>
+        supervisor.GroupLogs.Subscribe(log =>
+        {
+            if (log.Type == LogType.Info)
+                KoshConsole.WriteServiceLog(log.GroupName, log.Line);
+            else
+                KoshConsole.WriteServiceErrorLog(log.GroupName, log.Line);
+        });
+        
+        supervisor.ServiceLogs.Subscribe(log =>
         {
             if (log.Type == LogType.Info)
                 KoshConsole.WriteServiceLog(log.ServiceName, log.Line);
@@ -61,7 +75,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             if (key.Key == ConsoleKey.Q)
                 break;
 
-            // kasnije: komande, fuzzy search, restart, stop...
+            // TODO: HANDLE INPUT HERE.
         }
 
 

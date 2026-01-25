@@ -13,5 +13,5 @@ public interface ISupervisor
 
     IObservable<ServiceRuntime> ServiceEvents { get; }
     IObservable<GroupRuntime> GroupEvents { get; }
-    IObservable<ServiceLogEvent> LogEvents { get; }
+    IObservable<ServiceLogEvent> ServiceLogs { get; }
 }

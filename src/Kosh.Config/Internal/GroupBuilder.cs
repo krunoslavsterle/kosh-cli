@@ -31,7 +31,7 @@ internal static class GroupBuilder
     public static Result<List<GroupDefinition>> BuildGroups(IReadOnlyList<YamlService> yamlServices, string rootPath)
     {
         var groups = new List<GroupDefinition>();
-        
+
         foreach (var yamlService in yamlServices)
         {
             if (GlobbingExpander.IsGlob(yamlService.Path!))
@@ -39,30 +39,33 @@ internal static class GroupBuilder
                 var globedServicesResult = GlobbingExpander.Expand(yamlService, rootPath);
                 if (globedServicesResult.IsFailed)
                     return globedServicesResult.ToResult();
-                
+
                 groups.Add(Create(globedServicesResult.Value, yamlService.Name!));
                 continue;
             }
-            
+
             // TODO: UPDATE THIS WITH GROUP IMPLEMENTATION.
             var groupName = yamlService.Name!;
             var serviceDefinitionResult = ServiceBuilder.Create(yamlService, rootPath);
             if (serviceDefinitionResult.IsFailed)
                 return serviceDefinitionResult.ToResult();
-            
+
             groups.Add(Create(serviceDefinitionResult.Value, groupName));
         }
-        
+
         return groups;
     }
 
-    private static GroupDefinition Create(List<ServiceDefinition> groupedServices, string  groupName)
+    // If there is a group (defined by user, or by glob pattern), Group is BLOCKING.
+    private static GroupDefinition Create(List<ServiceDefinition> groupedServices, string groupName)
     {
-        return new GroupDefinition(GroupId.New(), groupName, groupedServices);
+        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.Blocking, groupedServices);
     }
-    
-    private static GroupDefinition Create(ServiceDefinition service, string  groupName)
+
+    // If there is just a single service in a Group, group is just a container and by nature NON-BLOCKING.
+    private static GroupDefinition Create(ServiceDefinition service, string groupName)
     {
-        return new GroupDefinition(GroupId.New(), groupName, new List<ServiceDefinition>{service});
+        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.NonBlocking,
+            new List<ServiceDefinition> { service });
     }
 }
