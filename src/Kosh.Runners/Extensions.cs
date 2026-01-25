@@ -32,4 +32,12 @@ public static class Extensions
         //     }
         // }
     }
+
+    public static IEnumerable<string> ToSplitArgs(this string? self)
+    {
+        if (string.IsNullOrWhiteSpace(self))
+            return [];
+        
+        return self.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    }
 }

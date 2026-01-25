@@ -1,6 +1,6 @@
 using FluentResults;
 using Kosh.Core.Runners;
-using Kosh.Runners.Runner;
+using Kosh.Runners.Runner.Dotnet;
 
 namespace Kosh.Runners;
 

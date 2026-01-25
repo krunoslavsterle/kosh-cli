@@ -17,17 +17,20 @@ public sealed class Supervisor : ISupervisor
     private readonly Dictionary<ServiceId, ServiceRuntime> _services = new();
     private readonly Dictionary<GroupId, GroupRuntime> _groups = new();
 
-    private readonly Dictionary<string, ServiceId> _serviceNameToId = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, ServiceId> _groupNameToId = new(StringComparer.OrdinalIgnoreCase);
-
+    // TODO: THIS WILL BE NEEDED LATER.
+    // private readonly Dictionary<string, ServiceId> _serviceNameToId = new(StringComparer.OrdinalIgnoreCase);
+    // private readonly Dictionary<string, ServiceId> _groupNameToId = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Subject<ServiceRuntime> _serviceEvents = new();
     private readonly Subject<GroupRuntime> _groupEvents = new();
-    private readonly Subject<ServiceLogEvent> _logEvents = new();
+    
+    private readonly Subject<ServiceLogEvent> _serviceLogs = new();
+    private readonly Subject<GroupLogEvent> _groupLogs = new();
 
     public IObservable<ServiceRuntime> ServiceEvents => _serviceEvents;
     public IObservable<GroupRuntime> GroupEvents => _groupEvents;
-    public IObservable<ServiceLogEvent> LogEvents => _logEvents;
+    public IObservable<ServiceLogEvent> ServiceLogs => _serviceLogs;
+    public IObservable<GroupLogEvent> GroupLogs => _groupLogs;
 
     public Supervisor(ConfigDefinition config, IRunnerFactory runnerFactory)
     {
@@ -42,7 +45,7 @@ public sealed class Supervisor : ISupervisor
             {
                 var sRuntime = new ServiceRuntime(service);
                 _services[service.Id] = sRuntime;
-                _serviceNameToId[service.Name] = service.Id;
+                // _serviceNameToId[service.Name] = service.Id;
                 serviceRuntimes.Add(new ServiceRuntime(service));
             }
 
@@ -51,9 +54,7 @@ public sealed class Supervisor : ISupervisor
         }
     }
 
-    // ------------------------------------------------------------
-    // Start ALL groups in YAML order
-    // ------------------------------------------------------------
+    // Start all Groups.
     public async Task<Result> StartAllAsync(CancellationToken ct)
     {
         foreach (var group in _config.Groups)
@@ -66,9 +67,7 @@ public sealed class Supervisor : ISupervisor
         return Result.Ok();
     }
 
-    // ------------------------------------------------------------
-    // Start a single group (blocking)
-    // ------------------------------------------------------------
+    // Start a single Group and handles ExecutionMode.
     public async Task<Result> StartGroupAsync(GroupId groupId, CancellationToken ct)
     {
         if (!_groups.TryGetValue(groupId, out var group))
@@ -76,6 +75,8 @@ public sealed class Supervisor : ISupervisor
 
         group.Status = GroupStatus.Running;
         _groupEvents.OnNext(group);
+
+        var tasks = new List<Task>();
 
         foreach (var service in group.Services)
         {
@@ -86,24 +87,39 @@ public sealed class Supervisor : ISupervisor
                 _groupEvents.OnNext(group);
                 return result;
             }
+
+            // Add completion task
+            tasks.Add(_services[service.Definition.Id].Completion.Task);
         }
 
-        group.Status = GroupStatus.Completed;
-        _groupEvents.OnNext(group);
+        if (group.Definition.ExecutionMode == ExecutionMode.Blocking)
+        {
+            // Wait for all services in this group to finish
+            _groupLogs.OnNext(new GroupLogEvent(group.Definition.Id, group.Definition.Name, LogType.Info, "Waiting Group to finish"));
+            await Task.WhenAll(tasks);
+
+            group.Status = GroupStatus.Completed;
+            _groupEvents.OnNext(group);
+        }
+        else
+        {
+            // Non-blocking: mark as running and return immediately
+            group.Status = GroupStatus.Running;
+            _groupEvents.OnNext(group);
+        }
 
         return Result.Ok();
     }
 
-    // ------------------------------------------------------------
-    // Start a single service (blocking)
-    // ------------------------------------------------------------
+
+    // Start a single Service in BLOCKING mode.
     public async Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct)
     {
         if (!_services.TryGetValue(serviceId, out var runtime))
             return Result.Fail($"Service '{serviceId}' not found.");
 
         if (runtime.Status == ServiceStatus.Running)
-            return Result.Ok(); // already running
+            return Result.Ok(); 
 
         runtime.Status = ServiceStatus.Starting;
         _serviceEvents.OnNext(runtime);
@@ -112,24 +128,25 @@ public sealed class Supervisor : ISupervisor
         if (runnerResult.IsFailed)
             return runnerResult.ToResult();
 
-        var process = await runnerResult.Value.StartAsync(runtime.Definition, ct);
-
-        // TODO: ???
-        if (process == null)
+        var processResult = await runnerResult.Value.StartAsync(runtime.Definition, ct);
+        if (processResult.IsFailed)
         {
             runtime.Status = ServiceStatus.Failed;
             _serviceEvents.OnNext(runtime);
             return Result.Fail($"Failed to start service '{runtime.Definition.Name}'.");
         }
+        
+        var process = processResult.Value;
 
         runtime.SetProcess(process);
         runtime.Status = ServiceStatus.Running;
+        
         _serviceEvents.OnNext(runtime);
 
-        // Subscribe to logs
+        // Subscribe to Service logs.
         process.Logs.Subscribe(log =>
         {
-            _logEvents.OnNext(new ServiceLogEvent(runtime.Definition.Id, runtime.Definition.Name, log.Type,
+            _serviceLogs.OnNext(new ServiceLogEvent(runtime.Definition.Id, runtime.Definition.Name, log.Type,
                 log.Line));
         });
 
@@ -139,6 +156,8 @@ public sealed class Supervisor : ISupervisor
             var exitCode = await process.WaitForExitAsync(ct);
 
             runtime.Status = exitCode == 0 ? ServiceStatus.Stopped : ServiceStatus.Failed;
+            runtime.Completion.TrySetResult(exitCode);
+
             _serviceEvents.OnNext(runtime);
         }, ct);
 

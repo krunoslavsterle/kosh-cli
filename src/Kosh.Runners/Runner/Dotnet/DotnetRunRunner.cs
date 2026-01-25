@@ -1,12 +1,13 @@
 using System.Diagnostics;
+using FluentResults;
 using Kosh.Core.Definitions;
 using Kosh.Core.Runners;
 
-namespace Kosh.Runners.Runner;
+namespace Kosh.Runners.Runner.Dotnet;
 
 internal sealed class DotnetRunRunner : IRunner
 {
-    public async Task<IRunningProcess> StartAsync(ServiceDefinition service, CancellationToken ct)
+    public async Task<Result<IRunningProcess>> StartAsync(ServiceDefinition service, CancellationToken ct)
     {
         var psi = new ProcessStartInfo
         {
@@ -25,21 +26,11 @@ internal sealed class DotnetRunRunner : IRunner
         // if (!withBuild)
         //     args = $"{args} --no-build";
 
-       
-        if (!string.IsNullOrWhiteSpace(service.Args))
-        {
-            foreach (var part in SplitArgs(service.Args))
-                psi.ArgumentList.Add(part);
-        }
+        foreach (var arg in service.Args.ToSplitArgs())
+                psi.ArgumentList.Add(arg);
         
-        // TODO: HANDLE LINUX CASE
-        // if (!OperatingSystem.IsWindows())
-        // {
-        //     psi.Environment["DOTNET_ROOT"] = GetDotnetRoot();
-        //     psi.Environment["PATH"] =
-        //         psi.Environment["DOTNET_ROOT"] + ":" + Environment.GetEnvironmentVariable("PATH");
-        // }
-
+        DotnetHelper.HandleDotnetRootEnv(psi);
+        
         psi.LoadEnvs(service.Environment, service.WorkingDirectory);
         
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -49,9 +40,9 @@ internal sealed class DotnetRunRunner : IRunner
             if (!process.Start())
                 return null!;
         }
-        catch
+        catch (Exception e)
         {
-            return null!;
+            return Result.Fail($"Failed to start process: {e.Message}");
         }
 
         process.BeginOutputReadLine();
@@ -60,9 +51,4 @@ internal sealed class DotnetRunRunner : IRunner
         return new RunningProcess(service.Id, process);
     }
 
-    private static IEnumerable<string> SplitArgs(string args)
-    {
-        // Minimal, deterministic arg splitter
-        return args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-    }
 }
