@@ -3,15 +3,15 @@ using FluentResults;
 using Kosh.Core.Definitions;
 using Kosh.Core.Runners;
 
-namespace Kosh.Runners.Runner.Dotnet;
+namespace Kosh.Runners.Runner.Docker;
 
-internal sealed class DotnetRunRunner : IRunner
+internal sealed class DockerComposeRunner : IRunner
 {
     public Task<Result<IRunningProcess>> StartAsync(ServiceDefinition service, CancellationToken ct)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = "dotnet",
+            FileName = "docker",
             WorkingDirectory = service.WorkingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -20,21 +20,19 @@ internal sealed class DotnetRunRunner : IRunner
             CreateNoWindow = true
         };
 
-        psi.ArgumentList.Add("run");
+        psi.ArgumentList.Add("compose");
         
-        // TODO: IMPLEMENT THIS FOR ALTERNATIVE DOTNET-WATCH
-        // if (!withBuild)
-        //     args = $"{args} --no-build";
+        var args = string.IsNullOrWhiteSpace(service.Args)
+            ? "up --remove-orphans"
+            : service.Args;
+        
+        foreach (var arg in args.ToSplitArgs())
+            psi.ArgumentList.Add(arg);
 
-        foreach (var arg in service.Args.ToSplitArgs())
-                psi.ArgumentList.Add(arg);
-        
-        DotnetHelper.HandleDotnetRootEnv(psi);
-        
         psi.LoadEnvs(service.Environment, service.WorkingDirectory);
-        
-        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
+        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        
         try
         {
             if (!process.Start())
@@ -44,10 +42,13 @@ internal sealed class DotnetRunRunner : IRunner
         {
             return Task.FromResult(Result.Fail<IRunningProcess>($"Failed to start process: {e.Message}"));
         }
-
+        
+        // // BLOCKING readiness check
+        // WaitForComposeReady(ct);
+        
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-
+        
         return Task.FromResult(Result.Ok<IRunningProcess>(new RunningProcess(service.Id, process))); 
     }
 }

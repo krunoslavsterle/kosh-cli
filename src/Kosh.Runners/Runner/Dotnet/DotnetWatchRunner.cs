@@ -5,7 +5,7 @@ using Kosh.Core.Runners;
 
 namespace Kosh.Runners.Runner.Dotnet;
 
-internal sealed class DotnetRunRunner : IRunner
+internal sealed class DotnetWatchRunner : IRunner
 {
     public Task<Result<IRunningProcess>> StartAsync(ServiceDefinition service, CancellationToken ct)
     {
@@ -20,19 +20,15 @@ internal sealed class DotnetRunRunner : IRunner
             CreateNoWindow = true
         };
 
-        psi.ArgumentList.Add("run");
-        
-        // TODO: IMPLEMENT THIS FOR ALTERNATIVE DOTNET-WATCH
-        // if (!withBuild)
-        //     args = $"{args} --no-build";
+        psi.ArgumentList.Add("watch");
 
         foreach (var arg in service.Args.ToSplitArgs())
-                psi.ArgumentList.Add(arg);
-        
+            psi.ArgumentList.Add(arg);
+
         DotnetHelper.HandleDotnetRootEnv(psi);
-        
+
         psi.LoadEnvs(service.Environment, service.WorkingDirectory);
-        
+
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
         try
@@ -48,6 +44,6 @@ internal sealed class DotnetRunRunner : IRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        return Task.FromResult(Result.Ok<IRunningProcess>(new RunningProcess(service.Id, process))); 
+        return Task.FromResult(Result.Ok<IRunningProcess>(new RunningProcess(service.Id, process)));
     }
 }
