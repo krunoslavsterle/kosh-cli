@@ -1,3 +1,9 @@
 <Solution>
+  <Project Path="src/Kosh.Cli/Kosh.Cli.csproj" />
+  <Project Path="src/Kosh.Config/Kosh.Config.csproj" />
+  <Project Path="src/Kosh.Core/Kosh.Core.csproj" />
+  <Project Path="src/Kosh.Logging/Kosh.Logging.csproj" />
+  <Project Path="src/Kosh.Runners/Kosh.Runners.csproj" />
+  <Project Path="src/Kosh.Supervisor/Kosh.Supervisor.csproj" />
   <Project Path="src/KoshCLI/KoshCLI.csproj" />
 </Solution>
