@@ -12,6 +12,7 @@ public sealed class RunningProcess : IRunningProcess
 
     public ServiceId ServiceId { get; }
     public IObservable<ProcessLog> Logs => _logs;
+    public TaskCompletionSource<int> Ready { get; } = new();
 
     private readonly Process _process;
 
@@ -40,6 +41,11 @@ public sealed class RunningProcess : IRunningProcess
             _process.WaitForExit();
             return _process.ExitCode;
         }, ct);
+    }
+
+    public Task<int> SetRuntimeReady(CancellationToken ct)
+    {
+        throw new NotImplementedException();
     }
 
     public Task StopAsync(CancellationToken ct)

@@ -23,7 +23,7 @@ internal class ServiceBuilder
         return new ServiceDefinition(
             Id: new ServiceId(Guid.NewGuid().ToString()),
             Name: yamlService.Name!,
-            RunnerType: runnerTypeResult.Value,
+            RunnerDefinition: runnerTypeResult.Value,
             WorkingDirectory: absolutePath,
             Args: yamlService.Args,
             Environment: yamlService.Env,
@@ -31,17 +31,17 @@ internal class ServiceBuilder
         );
     }
 
-    private static Result<RunnerType> ParseRunnerType(string type)
+    private static Result<RunnerTypeDefinition> ParseRunnerType(string type)
     {
         return type.ToLowerInvariant() switch
         {
-            "dotnet-run" => RunnerType.DotnetRun,
-            "dotnet-watch" => RunnerType.DotnetWatch,
-            "dotnet-watch-alt" => RunnerType.DotnetWatchAlt,
-            "docker-compose" => RunnerType.DockerCompose,
-            "node" => RunnerType.Node,
-            "caddy" => RunnerType.Caddy,
-            _ => Result.Fail<RunnerType>($"Service type {type} is not recognized.")
+            "dotnet-run" => new RunnerTypeDefinition(RunnerType.DotnetRun, ExecutionMode.BlockingUntilExit),
+            "dotnet-watch" => new RunnerTypeDefinition(RunnerType.DotnetWatch, ExecutionMode.NonBlocking),
+            "dotnet-watch-alt" => new RunnerTypeDefinition(RunnerType.DotnetWatchAlt, ExecutionMode.NonBlocking),
+            "docker-compose" => new RunnerTypeDefinition(RunnerType.DockerCompose, ExecutionMode.BlockingUntilReady),
+            "node" => new RunnerTypeDefinition(RunnerType.Node, ExecutionMode.NonBlocking),
+            "caddy" => new RunnerTypeDefinition(RunnerType.DotnetWatch, ExecutionMode.BlockingUntilExit),
+            _ => Result.Fail<RunnerTypeDefinition>($"Service type {type} is not recognized.")
         };
     }
 }

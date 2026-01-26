@@ -10,7 +10,7 @@ public static class KoshConsole
         var prefix = $"[bold {color.ToMarkup()}]{service}[/]";
         var escaped = Markup.Escape(message);
 
-        AnsiConsole.MarkupLine($"> [[{prefix}]]: {escaped}");
+        AnsiConsole.MarkupLine($"[[{prefix}]]: {escaped}");
     }
 
     public static void WriteServiceErrorLog(string service, string message)

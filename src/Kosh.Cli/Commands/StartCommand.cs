@@ -36,7 +36,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         // Subscribe to Service events
         supervisor.GroupEvents.Subscribe(runtime =>
         {
-            KoshConsole.WriteServiceLog(runtime.Definition.Name, runtime.Status.ToString());
+            KoshConsole.WriteServiceLog($"{runtime.Definition.Name}-group", runtime.Status.ToString());
         });
         
         // Subscribe to Service events
@@ -48,9 +48,9 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         supervisor.GroupLogs.Subscribe(log =>
         {
             if (log.Type == LogType.Info)
-                KoshConsole.WriteServiceLog(log.GroupName, log.Line);
+                KoshConsole.WriteServiceLog($"{log.GroupName}-group", log.Line);
             else
-                KoshConsole.WriteServiceErrorLog(log.GroupName, log.Line);
+                KoshConsole.WriteServiceErrorLog($"{log.GroupName}-group", log.Line);
         });
         
         supervisor.ServiceLogs.Subscribe(log =>

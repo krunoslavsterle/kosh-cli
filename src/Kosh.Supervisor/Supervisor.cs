@@ -23,7 +23,7 @@ public sealed class Supervisor : ISupervisor
 
     private readonly Subject<ServiceRuntime> _serviceEvents = new();
     private readonly Subject<GroupRuntime> _groupEvents = new();
-    
+
     private readonly Subject<ServiceLogEvent> _serviceLogs = new();
     private readonly Subject<GroupLogEvent> _groupLogs = new();
 
@@ -77,7 +77,8 @@ public sealed class Supervisor : ISupervisor
         _groupEvents.OnNext(group);
 
         var tasks = new List<Task>();
-
+        var isBlocking = false;
+        
         foreach (var service in group.Services)
         {
             var result = await StartServiceAsync(service.Definition.Id, ct);
@@ -88,14 +89,20 @@ public sealed class Supervisor : ISupervisor
                 return result;
             }
 
-            // Add completion task
-            tasks.Add(_services[service.Definition.Id].Completion.Task);
+            isBlocking = service.Definition.RunnerDefinition.DefaultExecutionMode != ExecutionMode.NonBlocking;
+
+            if (service.Definition.RunnerDefinition.DefaultExecutionMode == ExecutionMode.BlockingUntilExit)
+                tasks.Add(_services[service.Definition.Id].Completion.Task);
+
+            if (service.Definition.RunnerDefinition.DefaultExecutionMode == ExecutionMode.BlockingUntilReady)
+                tasks.Add(_services[service.Definition.Id].Process!.Ready.Task);
         }
 
-        if (group.Definition.ExecutionMode == ExecutionMode.Blocking)
+        if (isBlocking)
         {
-            // Wait for all services in this group to finish
-            _groupLogs.OnNext(new GroupLogEvent(group.Definition.Id, group.Definition.Name, LogType.Info, "Waiting Group to finish"));
+            _groupLogs.OnNext(new GroupLogEvent(group.Definition.Id, group.Definition.Name, LogType.Info,
+                "Waiting Group to finish"));
+
             await Task.WhenAll(tasks);
 
             group.Status = GroupStatus.Completed;
@@ -103,7 +110,6 @@ public sealed class Supervisor : ISupervisor
         }
         else
         {
-            // Non-blocking: mark as running and return immediately
             group.Status = GroupStatus.Running;
             _groupEvents.OnNext(group);
         }
@@ -119,12 +125,12 @@ public sealed class Supervisor : ISupervisor
             return Result.Fail($"Service '{serviceId}' not found.");
 
         if (runtime.Status == ServiceStatus.Running)
-            return Result.Ok(); 
+            return Result.Ok();
 
         runtime.Status = ServiceStatus.Starting;
         _serviceEvents.OnNext(runtime);
 
-        var runnerResult = _runnerFactory.Create(runtime.Definition.RunnerType);
+        var runnerResult = _runnerFactory.Create(runtime.Definition.RunnerDefinition.Type);
         if (runnerResult.IsFailed)
             return runnerResult.ToResult();
 
@@ -135,12 +141,18 @@ public sealed class Supervisor : ISupervisor
             _serviceEvents.OnNext(runtime);
             return Result.Fail($"Failed to start service '{runtime.Definition.Name}'.");
         }
-        
+
         var process = processResult.Value;
 
         runtime.SetProcess(process);
         runtime.Status = ServiceStatus.Running;
-        
+
+        _ = process.Ready.Task.ContinueWith((Task _) =>
+        {
+            runtime.Status = ServiceStatus.Ready;
+            _serviceEvents.OnNext(runtime);
+        }, ct);
+
         _serviceEvents.OnNext(runtime);
 
         // Subscribe to Service logs.
