@@ -59,13 +59,13 @@ internal static class GroupBuilder
     // If there is a group (defined by user, or by glob pattern), Group is BLOCKING.
     private static GroupDefinition Create(List<ServiceDefinition> groupedServices, string groupName)
     {
-        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.Blocking, groupedServices);
+        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.BlockingUntilExit, groupedServices);
     }
 
     // If there is just a single service in a Group, group is just a container and by nature NON-BLOCKING.
     private static GroupDefinition Create(ServiceDefinition service, string groupName)
     {
-        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.NonBlocking,
+        return new GroupDefinition(GroupId.New(), groupName, service.RunnerDefinition.DefaultExecutionMode,
             new List<ServiceDefinition> { service });
     }
 }

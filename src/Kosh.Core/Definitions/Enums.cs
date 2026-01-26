@@ -2,7 +2,7 @@ namespace Kosh.Core.Definitions;
 
 public enum ExecutionMode
 {
-    Default,
-    Blocking,
+    BlockingUntilExit,
+    BlockingUntilReady,
     NonBlocking
 }
