@@ -1,4 +1,4 @@
-﻿using Kosh.Cli.Commands;
+﻿using Kosh.Cli.Commands.Start;
 using Spectre.Console.Cli;
 
 var app = new CommandApp();

@@ -11,4 +11,15 @@
       <PackageReference Include="System.Reactive" Version="6.1.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="Scripts\add-hosts.ps1" />
+      <Content Include="Scripts\add-hosts.ps1">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <None Remove="Scripts\add-hosts.sh" />
+      <Content Include="Scripts\add-hosts.sh">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
 </Project>

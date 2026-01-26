@@ -38,7 +38,7 @@ public sealed class Supervisor : ISupervisor
         _runnerFactory = runnerFactory;
 
         // Build runtime state
-        foreach (var group in config.Groups)
+        foreach (var group in config.ServiceGroups)
         {
             var serviceRuntimes = new List<ServiceRuntime>();
             foreach (var service in group.Services)
@@ -57,7 +57,7 @@ public sealed class Supervisor : ISupervisor
     // Start all Groups.
     public async Task<Result> StartAllAsync(CancellationToken ct)
     {
-        foreach (var group in _config.Groups)
+        foreach (var group in _config.ServiceGroups)
         {
             var result = await StartGroupAsync(group.Id, ct);
             if (result.IsFailed)
