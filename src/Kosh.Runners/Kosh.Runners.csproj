@@ -10,4 +10,8 @@
       <ProjectReference Include="..\Kosh.Core\Kosh.Core.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Runner\Node\" />
+    </ItemGroup>
+
 </Project>
