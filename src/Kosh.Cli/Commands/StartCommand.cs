@@ -3,7 +3,9 @@ using Kosh.Cli.Rendering;
 using Kosh.Config;
 using Kosh.Core.Constants;
 using Kosh.Core.Events;
+using Kosh.Core.Helpers;
 using Kosh.Runners;
+using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace Kosh.Cli.Commands;
@@ -21,7 +23,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         CancellationToken ct)
     {
         KoshConsole.Info($"Validating kosh project..");
-
+        
         var configResult = ConfigProcessor.Process(settings.ConfigPath);
         if (configResult.IsFailed)
         {
@@ -30,7 +32,32 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         }
 
         var configDefinition = configResult.Value;
+        
+        var commandsValidationResult = SystemCommandsValidator.ValidateConfig(configDefinition);
+        if (!commandsValidationResult.IsValid)
+        {
+            KoshConsole.Error("Please install the missing tool(s)");
 
+            var table = new Table().AddColumn("Tool").AddColumn("Status");
+            table.AddRow(
+                "Docker",
+                commandsValidationResult.DockerValid ? "[green]OK[/]" : "[red]Missing[/]"
+            );
+
+            table.AddRow(
+                "Docker Compose",
+                commandsValidationResult.DockerComposeValid ? "[green]OK[/]" : "[red]Missing[/]"
+            );
+
+            table.AddRow(
+                "Caddy",
+                commandsValidationResult.ProxyValid ? "[green]OK[/]" : "[red]Missing[/]"
+            );
+
+            AnsiConsole.Write(table);
+            return -1;
+        }
+        
         var supervisor = new Supervisor.Supervisor(configDefinition, new RunnerFactory());
 
         // Subscribe to Service events
