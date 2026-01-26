@@ -40,7 +40,7 @@ internal class ServiceBuilder
             "dotnet-watch-alt" => new RunnerTypeDefinition(RunnerType.DotnetWatchAlt, ExecutionMode.NonBlocking),
             "docker-compose" => new RunnerTypeDefinition(RunnerType.DockerCompose, ExecutionMode.BlockingUntilReady),
             "node" => new RunnerTypeDefinition(RunnerType.Node, ExecutionMode.NonBlocking),
-            "caddy" => new RunnerTypeDefinition(RunnerType.DotnetWatch, ExecutionMode.BlockingUntilExit),
+            "caddy" => new RunnerTypeDefinition(RunnerType.Caddy, ExecutionMode.NonBlocking),
             _ => Result.Fail<RunnerTypeDefinition>($"Service type {type} is not recognized.")
         };
     }
