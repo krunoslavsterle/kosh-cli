@@ -17,7 +17,7 @@ public static class SystemCommandsValidator
     public static SystemCommandsValidationResult ValidateConfig(ConfigDefinition config)
     {
         var result = new SystemCommandsValidationResult();
-        var runnerTypes = config.Groups
+        var runnerTypes = config.ServiceGroups
             .SelectMany(g => g.Services.Select(s => s.RunnerDefinition.Type))
             .Distinct()
             .ToList();

@@ -19,7 +19,7 @@ public static class KoshConsole
         var prefix = $"[bold {color.ToMarkup()}]{service}[/]";
         var escaped = Markup.Escape(message);
 
-        AnsiConsole.MarkupLine($"> [[{prefix}]][bold red][[!]][/]: {escaped}");
+        AnsiConsole.MarkupLine($"[[{prefix}]][bold red][[!]][/]: {escaped}");
     }
 
     public static void Empty() => AnsiConsole.MarkupLine("");

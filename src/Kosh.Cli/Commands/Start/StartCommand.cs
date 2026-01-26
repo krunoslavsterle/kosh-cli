@@ -1,14 +1,11 @@
 using System.ComponentModel;
 using Kosh.Cli.Rendering;
-using Kosh.Config;
 using Kosh.Core.Constants;
 using Kosh.Core.Events;
-using Kosh.Core.Helpers;
 using Kosh.Runners;
-using Spectre.Console;
 using Spectre.Console.Cli;
 
-namespace Kosh.Cli.Commands;
+namespace Kosh.Cli.Commands.Start;
 
 public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 {
@@ -22,43 +19,11 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings,
         CancellationToken ct)
     {
-        KoshConsole.Info($"Validating kosh project..");
-        
-        var configResult = ConfigProcessor.Process(settings.ConfigPath);
-        if (configResult.IsFailed)
-        {
-            KoshConsole.Error(configResult.Errors[0].Message);
+        var configDefinitionResult = StartCommandPipeline.Execute(settings);
+        if (configDefinitionResult.IsFailed)
             return -1;
-        }
-
-        var configDefinition = configResult.Value;
         
-        var commandsValidationResult = SystemCommandsValidator.ValidateConfig(configDefinition);
-        if (!commandsValidationResult.IsValid)
-        {
-            KoshConsole.Error("Please install the missing tool(s)");
-
-            var table = new Table().AddColumn("Tool").AddColumn("Status");
-            table.AddRow(
-                "Docker",
-                commandsValidationResult.DockerValid ? "[green]OK[/]" : "[red]Missing[/]"
-            );
-
-            table.AddRow(
-                "Docker Compose",
-                commandsValidationResult.DockerComposeValid ? "[green]OK[/]" : "[red]Missing[/]"
-            );
-
-            table.AddRow(
-                "Caddy",
-                commandsValidationResult.ProxyValid ? "[green]OK[/]" : "[red]Missing[/]"
-            );
-
-            AnsiConsole.Write(table);
-            return -1;
-        }
-        
-        var supervisor = new Supervisor.Supervisor(configDefinition, new RunnerFactory());
+        var supervisor = new Supervisor.Supervisor(configDefinitionResult.Value, new RunnerFactory());
 
         // Subscribe to Service events
         supervisor.GroupEvents.Subscribe(runtime =>

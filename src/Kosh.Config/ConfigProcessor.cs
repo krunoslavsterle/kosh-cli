@@ -29,6 +29,11 @@ public static class ConfigProcessor
         if (groupsResult.IsFailed)
             return groupsResult.ToResult<ConfigDefinition>();
 
-        return Result.Ok(new ConfigDefinition(yamlRoot.ProjectName!, osPlatformResult.Value, groupsResult.Value));
+        var hostsResult = HostsBuilder.BuildHosts(yamlRoot.Hosts);
+        if (hostsResult.IsFailed)
+            return hostsResult.ToResult<ConfigDefinition>();
+
+        return Result.Ok(new ConfigDefinition(yamlRoot.ProjectName!, yamlRoot.Root, osPlatformResult.Value,
+            hostsResult.Value, groupsResult.Value));
     }
 }
