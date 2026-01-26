@@ -6,6 +6,6 @@ public enum RunnerType
     DotnetWatch,
     DotnetWatchAlt,
     DockerCompose,
-    Node,
+    Npm,
     Caddy
 }
