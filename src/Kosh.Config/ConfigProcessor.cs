@@ -1,6 +1,7 @@
 using FluentResults;
 using Kosh.Config.Internal;
 using Kosh.Config.Parsing;
+using Kosh.Core.Constants;
 using Kosh.Core.Definitions;
 using Kosh.Core.Helpers;
 
@@ -35,5 +36,24 @@ public static class ConfigProcessor
 
         return Result.Ok(new ConfigDefinition(yamlRoot.ProjectName!, yamlRoot.Root, osPlatformResult.Value,
             hostsResult.Value, groupsResult.Value));
+    }
+
+    public static Result<string> ReadConfig(string? configPath, ConfigType configType)
+    {
+        return ConfigLoader.Read(configPath, configType);
+    }
+
+    public static Result CreateConfig(string configPath)
+    {
+        var path = Path.Combine(configPath, ConfigConstants.ConfigFile);
+
+        if (File.Exists(path))
+            return Result.Fail($"{ConfigConstants.ConfigFile} already exists.");
+
+        var exeDir = AppContext.BaseDirectory;
+        var yaml = File.ReadAllText(Path.Combine(exeDir, ConfigConstants.InitConfigFile));
+
+        File.WriteAllText(path, yaml);
+        return Result.Ok();
     }
 }

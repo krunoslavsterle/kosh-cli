@@ -4,11 +4,11 @@ services:
   - name: infra
     type: docker-compose
     path: ./devops/local
-    logs: true
+    logs: none
 
   - name: gateway
     type: caddy
-    logs: false
+    logs: error
     path: ./devops/local
     args: "--config Caddyfile"
 

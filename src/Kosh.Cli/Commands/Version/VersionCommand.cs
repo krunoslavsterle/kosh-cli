@@ -1,12 +1,14 @@
-using KoshCLI.Terminal;
+using Kosh.Cli.Rendering;
 using Spectre.Console.Cli;
 
-namespace KoshCLI.Commands;
+namespace Kosh.Cli.Commands.Version;
 
 public class VersionCommand : Command<VersionCommand.VersionSettings>
 {
-    public class VersionSettings : CommandSettings{}
-    
+    public class VersionSettings : CommandSettings
+    {
+    }
+
     public override int Execute(CommandContext context, VersionSettings settings, CancellationToken cancellationToken)
     {
         var version = typeof(Program).Assembly

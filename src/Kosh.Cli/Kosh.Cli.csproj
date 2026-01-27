@@ -2,21 +2,46 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <RootNamespace>Kosh.Cli</RootNamespace>
+        <Version>0.4.0</Version>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>kosh</ToolCommandName>
+        <PackageId>kosh</PackageId>
+        <PackageOutputPath>./nupkg</PackageOutputPath>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <Authors>Krunoslav Šterle</Authors>
+        <Description>Lightweight cross-platform service orchestrator for smaller projects.</Description>
+        <Copyright>Copyright (c) Krunoslav Šterle</Copyright>
+        <PackageProjectUrl>https://github.com/krunoslavsterle/kosh-cli</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/krunoslavsterle/kosh-cli.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <RollForward>Major</RollForward>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Spectre.Console" Version="0.54.0" />
-      <PackageReference Include="Spectre.Console.Cli" Version="0.53.1" />
+        <PackageReference Include="Spectre.Console" Version="0.54.0"/>
+        <PackageReference Include="Spectre.Console.Cli" Version="0.53.1"/>
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Kosh.Config\Kosh.Config.csproj" />
-      <ProjectReference Include="..\Kosh.Core\Kosh.Core.csproj" />
-      <ProjectReference Include="..\Kosh.Runners\Kosh.Runners.csproj" />
-      <ProjectReference Include="..\Kosh.Supervisor\Kosh.Supervisor.csproj" />
+        <ProjectReference Include="..\Kosh.Config\Kosh.Config.csproj"/>
+        <ProjectReference Include="..\Kosh.Core\Kosh.Core.csproj"/>
+        <ProjectReference Include="..\Kosh.Runners\Kosh.Runners.csproj"/>
+        <ProjectReference Include="..\Kosh.Supervisor\Kosh.Supervisor.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="../../README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
 </Project>
