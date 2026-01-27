@@ -6,3 +6,17 @@ public enum ExecutionMode
     BlockingUntilReady,
     NonBlocking
 }
+
+public enum ConfigType
+{
+    InitConfig,
+    ExampleConfig,
+    RealConfig
+}
+
+public enum ConfigLogType
+{
+    None,
+    Error,
+    All
+}

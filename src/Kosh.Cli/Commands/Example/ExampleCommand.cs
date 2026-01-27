@@ -1,7 +1,9 @@
-using KoshCLI.Terminal;
+using Kosh.Cli.Rendering;
+using Kosh.Config;
+using Kosh.Core.Definitions;
 using Spectre.Console.Cli;
 
-namespace KoshCLI.Commands;
+namespace Kosh.Cli.Commands.Example;
 
 public class ExampleCommand : Command<ExampleCommand.ExampleSettings>
 {
@@ -14,7 +16,7 @@ public class ExampleCommand : Command<ExampleCommand.ExampleSettings>
     )
     {
         var exeDir = AppContext.BaseDirectory;
-        var yaml = File.ReadAllText(Path.Combine(exeDir, Constants.ExampleConfigFile));
+        var yaml = ConfigProcessor.ReadConfig(exeDir, ConfigType.ExampleConfig);
 
         KoshConsole.Info($"\n\n{yaml}");
         return 0;

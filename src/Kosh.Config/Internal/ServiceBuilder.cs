@@ -19,6 +19,10 @@ internal class ServiceBuilder
         var runnerTypeResult = ParseRunnerType(yamlService.Type!);
         if (runnerTypeResult.IsFailed)
             return runnerTypeResult.ToResult();
+
+        var logTypeResult = ParseLogType(yamlService.Logs);
+        if (logTypeResult.IsFailed)
+            return logTypeResult.ToResult();
         
         return new ServiceDefinition(
             Id: new ServiceId(Guid.NewGuid().ToString()),
@@ -27,6 +31,7 @@ internal class ServiceBuilder
             WorkingDirectory: absolutePath,
             Args: yamlService.Args,
             Environment: yamlService.Env,
+            ConfigLogType: logTypeResult.Value,
             InheritEnv: yamlService.InheritEnv
         );
     }
@@ -42,6 +47,20 @@ internal class ServiceBuilder
             "npm" => new RunnerTypeDefinition(RunnerType.Npm, ExecutionMode.NonBlocking),
             "caddy" => new RunnerTypeDefinition(RunnerType.Caddy, ExecutionMode.NonBlocking),
             _ => Result.Fail<RunnerTypeDefinition>($"Service type {type} is not recognized.")
+        };
+    }
+
+    private static Result<ConfigLogType> ParseLogType(string? logs)
+    {
+        if (string.IsNullOrEmpty(logs))
+            return ConfigLogType.All;
+
+        return logs.ToLowerInvariant() switch
+        {
+            "error" => ConfigLogType.Error,
+            "all" => ConfigLogType.All,
+            "none" => ConfigLogType.None,
+            _ => Result.Fail<ConfigLogType>($"Log type {logs} is not recognized.")
         };
     }
 }

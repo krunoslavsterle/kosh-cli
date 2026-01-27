@@ -158,6 +158,12 @@ public sealed class Supervisor : ISupervisor
         // Subscribe to Service logs.
         process.Logs.Subscribe(log =>
         {
+            if (runtime.Definition.ConfigLogType == ConfigLogType.None)
+                return;
+
+            if (runtime.Definition.ConfigLogType == ConfigLogType.Error && log.Type != LogType.Error)
+                return;
+            
             _serviceLogs.OnNext(new ServiceLogEvent(runtime.Definition.Id, runtime.Definition.Name, log.Type,
                 log.Line));
         });

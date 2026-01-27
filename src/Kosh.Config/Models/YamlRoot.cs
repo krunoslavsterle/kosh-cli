@@ -15,7 +15,7 @@ internal class YamlService
     public string? Type { get; init; }
     public string? Path { get; init; }
     public string? Args { get; init; }
-    public bool Logs { get; init; } = true;
+    public string? Logs { get; init; }
     public bool InheritEnv { get; init; } = false;
     public Dictionary<string, string> Env { get; init; } = [];
 }

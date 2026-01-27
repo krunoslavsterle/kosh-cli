@@ -91,11 +91,11 @@ services:
   - name: infra
     type: docker-compose
     path: ./devops/local
-    logs: false
+    logs: none
 
   - name: gateway
     type: caddy
-    logs: false
+    logs: error
     path: ./devops/local
     args: "--config Caddyfile"
 
@@ -148,7 +148,7 @@ A list of all services that kosh will start. Each service entry contains:
 | **args**       | N   | Additional arguments passed to the runner                                                                  |
 | **env**        | N   | Environment variables passed to the runner                                                                 |
 | **inheritEnv** | N   | Flag indicating should a service inherit environment variables from a global `.env` (**false** by default) |
-| **logs**       | N   | Whether logs should be streamed to the terminal (**true** by default)                                      |
+| **logs**       | N   | Kind of logs that should be streamed to the terminal [none, error, all] (**all** by default)               |
 
 ---
 
@@ -229,26 +229,7 @@ the args
 
 ---
 
-### 5) dotnet watch Alternative
-
-```yaml
-- name: api
-  type: dotnet-watch-alt
-  path: ./src/apps/KoshTestProject.Api
-  args: "--urls http://localhost:6001"
-  env:
-    ASPNETCORE_ENVIRONMENT: Development
-```
-
-Runs **kosh** alternative implementation for the `dotnet watch run`. On some occasions I had an issue with running
-`dotnet watch run` as a child
-process of a console. Because of that I created an alternative mechanism that uses `dotnet run` and restarts when a
-change on the project DLL file
-is detected. That means, it will restart the service when you rebuild the project after making a change in the code.
-
----
-
-### 6) Node application
+### 5) Node application
 
 ```yaml
 - name: frontend-react
