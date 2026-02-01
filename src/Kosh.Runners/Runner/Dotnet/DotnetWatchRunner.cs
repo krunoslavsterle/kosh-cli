@@ -27,7 +27,7 @@ internal sealed class DotnetWatchRunner : IRunner
 
         DotnetHelper.HandleDotnetRootEnv(psi);
 
-        psi.LoadEnvs(service.Environment, service.WorkingDirectory);
+        psi.LoadEnvs(service);
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 

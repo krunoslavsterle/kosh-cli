@@ -34,6 +34,7 @@ public static class ConfigProcessor
         if (hostsResult.IsFailed)
             return hostsResult.ToResult<ConfigDefinition>();
 
+
         return Result.Ok(new ConfigDefinition(yamlRoot.ProjectName!, yamlRoot.Root, osPlatformResult.Value,
             hostsResult.Value, groupsResult.Value));
     }

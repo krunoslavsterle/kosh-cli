@@ -5,6 +5,7 @@ public static class ConfigConstants
     public const string ConfigFile = "koshconfig.yaml";
     public const string ExampleConfigFile = "koshconfig.example.yaml";
     public const string InitConfigFile = "koshconfig.init.yaml";
+    public const string EnvFile = ".env";
 
     public static readonly string[] ServiceTypes =
     [

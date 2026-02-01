@@ -8,13 +8,16 @@ namespace Kosh.Config.Internal;
 
 internal class ServiceBuilder
 {
-    public static Result<ServiceDefinition> Create(YamlService yamlService, string rootDirectory)
+    public static Result<ServiceDefinition> Create(YamlService yamlService, string rootDirectory,
+        IReadOnlyDictionary<string, string> globalEnvironment)
     {
         var absolutePath = Path.GetFullPath(Path.Combine(rootDirectory, yamlService.Path!));
-        return CreateAbsolute(yamlService, absolutePath);
+        return CreateAbsolute(yamlService, absolutePath, globalEnvironment);
     }
-    
-    public static Result<ServiceDefinition> CreateAbsolute(YamlService yamlService, string absolutePath)
+
+
+    public static Result<ServiceDefinition> CreateAbsolute(YamlService yamlService, string absolutePath,
+        IReadOnlyDictionary<string, string> globalEnvironment)
     {
         var runnerTypeResult = ParseRunnerType(yamlService.Type!);
         if (runnerTypeResult.IsFailed)
@@ -23,7 +26,7 @@ internal class ServiceBuilder
         var logTypeResult = ParseLogType(yamlService.Logs);
         if (logTypeResult.IsFailed)
             return logTypeResult.ToResult();
-        
+
         return new ServiceDefinition(
             Id: new ServiceId(Guid.NewGuid().ToString()),
             Name: yamlService.Name!,
@@ -31,6 +34,7 @@ internal class ServiceBuilder
             WorkingDirectory: absolutePath,
             Args: yamlService.Args,
             Environment: yamlService.Env,
+            globalEnvironment,
             ConfigLogType: logTypeResult.Value,
             InheritEnv: yamlService.InheritEnv
         );

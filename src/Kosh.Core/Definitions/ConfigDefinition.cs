@@ -8,4 +8,5 @@ public sealed record ConfigDefinition(
     string? RootDirectory,
     OSPlatform OsPlatform,
     List<HostDefinition> Hosts,
-    IReadOnlyList<GroupDefinition> ServiceGroups);
+    IReadOnlyList<GroupDefinition> ServiceGroups
+);

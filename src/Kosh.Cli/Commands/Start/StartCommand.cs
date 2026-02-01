@@ -22,21 +22,22 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         var configDefinitionResult = StartCommandPipeline.Execute(settings);
         if (configDefinitionResult.IsFailed)
             return -1;
-        
+
         var supervisor = new Supervisor.Supervisor(configDefinitionResult.Value, new RunnerFactory());
 
-        // Subscribe to Service events
+        // Subscribe to Group events
         supervisor.GroupEvents.Subscribe(runtime =>
         {
-            KoshConsole.WriteServiceLog($"{runtime.Definition.Name}-group", runtime.Status.ToString());
+            if (!runtime.Definition.IsVirtualGroup)
+                KoshConsole.WriteServiceLog($"{runtime.Definition.Name}-group", runtime.Status.ToString());
         });
-        
+
         // Subscribe to Service events
         supervisor.ServiceEvents.Subscribe(runtime =>
         {
             KoshConsole.WriteServiceLog(runtime.Definition.Name, runtime.Status.ToString());
         });
-        
+
         supervisor.GroupLogs.Subscribe(log =>
         {
             if (log.Type == LogType.Info)
@@ -44,7 +45,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             else
                 KoshConsole.WriteServiceErrorLog($"{log.GroupName}-group", log.Line);
         });
-        
+
         supervisor.ServiceLogs.Subscribe(log =>
         {
             if (log.Type == LogType.Info)

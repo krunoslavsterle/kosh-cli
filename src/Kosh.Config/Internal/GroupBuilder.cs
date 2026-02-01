@@ -1,6 +1,7 @@
 using FluentResults;
 using Kosh.Config.Models;
 using Kosh.Core.Definitions;
+using Kosh.Core.Helpers;
 using Kosh.Core.ValueObjects;
 
 namespace Kosh.Config.Internal;
@@ -31,12 +32,13 @@ internal static class GroupBuilder
     public static Result<List<GroupDefinition>> BuildGroups(IReadOnlyList<YamlService> yamlServices, string rootPath)
     {
         var groups = new List<GroupDefinition>();
+        var rootEnv = EnvHelper.LoadEnvFile(rootPath);
 
         foreach (var yamlService in yamlServices)
         {
             if (GlobbingExpander.IsGlob(yamlService.Path!))
             {
-                var globedServicesResult = GlobbingExpander.Expand(yamlService, rootPath);
+                var globedServicesResult = GlobbingExpander.Expand(yamlService, rootPath, rootEnv);
                 if (globedServicesResult.IsFailed)
                     return globedServicesResult.ToResult();
 
@@ -46,7 +48,7 @@ internal static class GroupBuilder
 
             // TODO: UPDATE THIS WITH GROUP IMPLEMENTATION.
             var groupName = yamlService.Name!;
-            var serviceDefinitionResult = ServiceBuilder.Create(yamlService, rootPath);
+            var serviceDefinitionResult = ServiceBuilder.Create(yamlService, rootPath, rootEnv);
             if (serviceDefinitionResult.IsFailed)
                 return serviceDefinitionResult.ToResult();
 
@@ -59,13 +61,13 @@ internal static class GroupBuilder
     // If there is a group (defined by user, or by glob pattern), Group is BLOCKING.
     private static GroupDefinition Create(List<ServiceDefinition> groupedServices, string groupName)
     {
-        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.BlockingUntilExit, groupedServices);
+        return new GroupDefinition(GroupId.New(), groupName, ExecutionMode.BlockingUntilExit, groupedServices, false);
     }
 
     // If there is just a single service in a Group, group is just a container and by nature NON-BLOCKING.
     private static GroupDefinition Create(ServiceDefinition service, string groupName)
     {
         return new GroupDefinition(GroupId.New(), groupName, service.RunnerDefinition.DefaultExecutionMode,
-            new List<ServiceDefinition> { service });
+            new List<ServiceDefinition> { service }, true);
     }
 }

@@ -10,5 +10,6 @@ public sealed record ServiceDefinition(
     string WorkingDirectory,
     string? Args,
     IReadOnlyDictionary<string, string> Environment,
+    IReadOnlyDictionary<string, string> GlobalEnvironment,
     ConfigLogType ConfigLogType,
     bool InheritEnv);

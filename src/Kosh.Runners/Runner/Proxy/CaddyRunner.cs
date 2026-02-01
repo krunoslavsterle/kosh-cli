@@ -21,12 +21,12 @@ internal sealed class CaddyRunner : IRunner
         };
 
         psi.ArgumentList.Add("run");
-        
+
         foreach (var arg in service.Args.ToSplitArgs())
             psi.ArgumentList.Add(arg);
-        
-        psi.LoadEnvs(service.Environment, service.WorkingDirectory);
-        
+
+        psi.LoadEnvs(service);
+
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
         try
@@ -42,6 +42,6 @@ internal sealed class CaddyRunner : IRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        return Task.FromResult(Result.Ok<IRunningProcess>(new RunningProcess(service.Id, process))); 
+        return Task.FromResult(Result.Ok<IRunningProcess>(new RunningProcess(service.Id, process)));
     }
 }

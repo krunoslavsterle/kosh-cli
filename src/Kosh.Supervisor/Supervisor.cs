@@ -78,7 +78,7 @@ public sealed class Supervisor : ISupervisor
 
         var tasks = new List<Task>();
         var isBlocking = false;
-        
+
         foreach (var service in group.Services)
         {
             var result = await StartServiceAsync(service.Definition.Id, ct);
@@ -100,8 +100,9 @@ public sealed class Supervisor : ISupervisor
 
         if (isBlocking)
         {
-            _groupLogs.OnNext(new GroupLogEvent(group.Definition.Id, group.Definition.Name, LogType.Info,
-                "Waiting Group to finish"));
+            if (!group.Definition.IsVirtualGroup)
+                _groupLogs.OnNext(new GroupLogEvent(group.Definition.Id, group.Definition.Name, LogType.Info,
+                    "Waiting Group to finish"));
 
             await Task.WhenAll(tasks);
 
@@ -163,7 +164,7 @@ public sealed class Supervisor : ISupervisor
 
             if (runtime.Definition.ConfigLogType == ConfigLogType.Error && log.Type != LogType.Error)
                 return;
-            
+
             _serviceLogs.OnNext(new ServiceLogEvent(runtime.Definition.Id, runtime.Definition.Name, log.Type,
                 log.Line));
         });

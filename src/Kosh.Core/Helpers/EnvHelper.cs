@@ -1,11 +1,13 @@
-namespace Kosh.Runners.Helpers;
+using Kosh.Core.Constants;
+
+namespace Kosh.Core.Helpers;
 
 public class EnvHelper
 {
     public static Dictionary<string, string> LoadEnvFile(string? path)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        path = path == null ? Constants.EnvFile : Path.Combine(path, Constants.EnvFile);
+        path = path == null ? ConfigConstants.EnvFile : Path.Combine(path, ConfigConstants.EnvFile);
 
         if (!File.Exists(path))
             return result;

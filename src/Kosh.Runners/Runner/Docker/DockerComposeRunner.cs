@@ -30,7 +30,7 @@ internal sealed class DockerComposeRunner : IRunner
         foreach (var arg in args.ToSplitArgs())
             psi.ArgumentList.Add(arg);
 
-        psi.LoadEnvs(service.Environment, service.WorkingDirectory);
+        psi.LoadEnvs(service);
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
