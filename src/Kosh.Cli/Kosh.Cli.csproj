@@ -6,7 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Kosh.Cli</RootNamespace>
-        <Version>0.4.0</Version>
+        <Version>0.4.1</Version>
     </PropertyGroup>
 
     <PropertyGroup>
