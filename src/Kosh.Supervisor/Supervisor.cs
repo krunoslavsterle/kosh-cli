@@ -81,6 +81,9 @@ public sealed class Supervisor : ISupervisor
 
         foreach (var service in group.Services)
         {
+            if (service.Definition.ManualStart)
+                continue;
+
             var result = await StartServiceAsync(service.Definition.Id, ct);
             if (result.IsFailed)
             {
@@ -89,20 +92,34 @@ public sealed class Supervisor : ISupervisor
                 return result;
             }
 
-            isBlocking = service.Definition.RunnerDefinition.DefaultExecutionMode != ExecutionMode.NonBlocking;
+            isBlocking =
+                service.Definition.RunnerDefinition.DefaultExecutionMode
+                != ExecutionMode.NonBlocking;
 
-            if (service.Definition.RunnerDefinition.DefaultExecutionMode == ExecutionMode.BlockingUntilExit)
+            if (
+                service.Definition.RunnerDefinition.DefaultExecutionMode
+                == ExecutionMode.BlockingUntilExit
+            )
                 tasks.Add(_services[service.Definition.Id].Completion.Task);
 
-            if (service.Definition.RunnerDefinition.DefaultExecutionMode == ExecutionMode.BlockingUntilReady)
+            if (
+                service.Definition.RunnerDefinition.DefaultExecutionMode
+                == ExecutionMode.BlockingUntilReady
+            )
                 tasks.Add(_services[service.Definition.Id].Process!.Ready.Task);
         }
 
         if (isBlocking)
         {
             if (!group.Definition.IsVirtualGroup)
-                _groupLogs.OnNext(new GroupLogEvent(group.Definition.Id, group.Definition.Name, LogType.Info,
-                    "Waiting Group to finish"));
+                _groupLogs.OnNext(
+                    new GroupLogEvent(
+                        group.Definition.Id,
+                        group.Definition.Name,
+                        LogType.Info,
+                        "Waiting Group to finish"
+                    )
+                );
 
             await Task.WhenAll(tasks);
 
@@ -117,7 +134,6 @@ public sealed class Supervisor : ISupervisor
 
         return Result.Ok();
     }
-
 
     // Start a single Service in BLOCKING mode.
     public async Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct)
@@ -148,11 +164,14 @@ public sealed class Supervisor : ISupervisor
         runtime.SetProcess(process);
         runtime.Status = ServiceStatus.Running;
 
-        _ = process.Ready.Task.ContinueWith((Task _) =>
-        {
-            runtime.Status = ServiceStatus.Ready;
-            _serviceEvents.OnNext(runtime);
-        }, ct);
+        _ = process.Ready.Task.ContinueWith(
+            (Task _) =>
+            {
+                runtime.Status = ServiceStatus.Ready;
+                _serviceEvents.OnNext(runtime);
+            },
+            ct
+        );
 
         _serviceEvents.OnNext(runtime);
 
@@ -162,24 +181,45 @@ public sealed class Supervisor : ISupervisor
             if (runtime.Definition.ConfigLogType == ConfigLogType.None)
                 return;
 
-            if (runtime.Definition.ConfigLogType == ConfigLogType.Error && log.Type != LogType.Error)
+            if (
+                runtime.Definition.ConfigLogType == ConfigLogType.Error
+                && log.Type != LogType.Error
+            )
                 return;
 
-            _serviceLogs.OnNext(new ServiceLogEvent(runtime.Definition.Id, runtime.Definition.Name, log.Type,
-                log.Line));
+            _serviceLogs.OnNext(
+                new ServiceLogEvent(
+                    runtime.Definition.Id,
+                    runtime.Definition.Name,
+                    log.Type,
+                    log.Line
+                )
+            );
         });
 
         // Wait for exit asynchronously
-        _ = Task.Run(async () =>
-        {
-            var exitCode = await process.WaitForExitAsync(ct);
+        _ = Task.Run(
+            async () =>
+            {
+                var exitCode = await process.WaitForExitAsync(ct);
 
-            runtime.Status = exitCode == 0 ? ServiceStatus.Stopped : ServiceStatus.Failed;
-            runtime.Completion.TrySetResult(exitCode);
+                runtime.Status = exitCode == 0 ? ServiceStatus.Stopped : ServiceStatus.Failed;
+                runtime.Completion.TrySetResult(exitCode);
 
-            _serviceEvents.OnNext(runtime);
-        }, ct);
+                _serviceEvents.OnNext(runtime);
+            },
+            ct
+        );
 
         return Result.Ok();
+    }
+
+    public async Task<Result> StartServiceByNameAsync(string name, CancellationToken ct)
+    {
+        var service = _services.FirstOrDefault(s => s.Value.Definition.Name == name);
+        if (service.Value is null)
+            return Result.Fail($"Service with name '{name}' not found.");
+
+        return await StartServiceAsync(service.Key, ct);
     }
 }

@@ -8,16 +8,21 @@ namespace Kosh.Config.Internal;
 
 internal class ServiceBuilder
 {
-    public static Result<ServiceDefinition> Create(YamlService yamlService, string rootDirectory,
-        IReadOnlyDictionary<string, string> globalEnvironment)
+    public static Result<ServiceDefinition> Create(
+        YamlService yamlService,
+        string rootDirectory,
+        IReadOnlyDictionary<string, string> globalEnvironment
+    )
     {
         var absolutePath = Path.GetFullPath(Path.Combine(rootDirectory, yamlService.Path!));
         return CreateAbsolute(yamlService, absolutePath, globalEnvironment);
     }
 
-
-    public static Result<ServiceDefinition> CreateAbsolute(YamlService yamlService, string absolutePath,
-        IReadOnlyDictionary<string, string> globalEnvironment)
+    public static Result<ServiceDefinition> CreateAbsolute(
+        YamlService yamlService,
+        string absolutePath,
+        IReadOnlyDictionary<string, string> globalEnvironment
+    )
     {
         var runnerTypeResult = ParseRunnerType(yamlService.Type!);
         if (runnerTypeResult.IsFailed)
@@ -36,7 +41,8 @@ internal class ServiceBuilder
             Environment: yamlService.Env,
             globalEnvironment,
             ConfigLogType: logTypeResult.Value,
-            InheritEnv: yamlService.InheritEnv
+            InheritEnv: yamlService.InheritEnv,
+            ManualStart: yamlService.Manual
         );
     }
 
@@ -44,13 +50,25 @@ internal class ServiceBuilder
     {
         return type.ToLowerInvariant() switch
         {
-            "dotnet-run" => new RunnerTypeDefinition(RunnerType.DotnetRun, ExecutionMode.BlockingUntilExit),
-            "dotnet-watch" => new RunnerTypeDefinition(RunnerType.DotnetWatch, ExecutionMode.NonBlocking),
-            "dotnet-watch-alt" => new RunnerTypeDefinition(RunnerType.DotnetWatchAlt, ExecutionMode.NonBlocking),
-            "docker-compose" => new RunnerTypeDefinition(RunnerType.DockerCompose, ExecutionMode.BlockingUntilReady),
+            "dotnet-run" => new RunnerTypeDefinition(
+                RunnerType.DotnetRun,
+                ExecutionMode.BlockingUntilExit
+            ),
+            "dotnet-watch" => new RunnerTypeDefinition(
+                RunnerType.DotnetWatch,
+                ExecutionMode.NonBlocking
+            ),
+            "dotnet-watch-alt" => new RunnerTypeDefinition(
+                RunnerType.DotnetWatchAlt,
+                ExecutionMode.NonBlocking
+            ),
+            "docker-compose" => new RunnerTypeDefinition(
+                RunnerType.DockerCompose,
+                ExecutionMode.BlockingUntilReady
+            ),
             "npm" => new RunnerTypeDefinition(RunnerType.Npm, ExecutionMode.NonBlocking),
             "caddy" => new RunnerTypeDefinition(RunnerType.Caddy, ExecutionMode.NonBlocking),
-            _ => Result.Fail<RunnerTypeDefinition>($"Service type {type} is not recognized.")
+            _ => Result.Fail<RunnerTypeDefinition>($"Service type {type} is not recognized."),
         };
     }
 
@@ -64,7 +82,7 @@ internal class ServiceBuilder
             "error" => ConfigLogType.Error,
             "all" => ConfigLogType.All,
             "none" => ConfigLogType.None,
-            _ => Result.Fail<ConfigLogType>($"Log type {logs} is not recognized.")
+            _ => Result.Fail<ConfigLogType>($"Log type {logs} is not recognized."),
         };
     }
 }

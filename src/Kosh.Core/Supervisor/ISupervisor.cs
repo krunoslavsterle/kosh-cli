@@ -10,6 +10,7 @@ public interface ISupervisor
     Task<Result> StartAllAsync(CancellationToken ct);
     Task<Result> StartGroupAsync(GroupId groupId, CancellationToken ct);
     Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct);
+    Task<Result> StartServiceByNameAsync(string name, CancellationToken ct);
 
     IObservable<ServiceRuntime> ServiceEvents { get; }
     IObservable<GroupRuntime> GroupEvents { get; }
