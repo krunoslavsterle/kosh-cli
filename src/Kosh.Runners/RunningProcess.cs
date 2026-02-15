@@ -11,6 +11,7 @@ public sealed class RunningProcess : IRunningProcess
     private readonly Subject<ProcessLog> _logs = new();
 
     public ServiceId ServiceId { get; }
+    public int Pid => _process.Id;
     public IObservable<ProcessLog> Logs => _logs;
     public TaskCompletionSource<int> Ready { get; } = new();
 
@@ -20,7 +21,6 @@ public sealed class RunningProcess : IRunningProcess
     {
         ServiceId = id;
         _process = process;
-
         _process.OutputDataReceived += (_, e) =>
         {
             if (e.Data != null)
@@ -36,11 +36,14 @@ public sealed class RunningProcess : IRunningProcess
 
     public Task<int> WaitForExitAsync(CancellationToken ct)
     {
-        return Task.Run(() =>
-        {
-            _process.WaitForExit();
-            return _process.ExitCode;
-        }, ct);
+        return Task.Run(
+            () =>
+            {
+                _process.WaitForExit();
+                return _process.ExitCode;
+            },
+            ct
+        );
     }
 
     public Task<int> SetRuntimeReady(CancellationToken ct)

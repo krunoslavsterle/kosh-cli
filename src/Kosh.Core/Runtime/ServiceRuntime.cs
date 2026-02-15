@@ -9,6 +9,7 @@ public sealed class ServiceRuntime
     public ServiceStatus Status { get; set; }
     public IRunningProcess? Process { get; internal set; }
     public TaskCompletionSource<int> Completion { get; } = new();
+    public DateTime? StartedAt { get; set; }
 
     public ServiceRuntime(ServiceDefinition definition)
     {

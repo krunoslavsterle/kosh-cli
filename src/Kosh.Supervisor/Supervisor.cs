@@ -31,6 +31,7 @@ public sealed class Supervisor : ISupervisor
     public IObservable<GroupRuntime> GroupEvents => _groupEvents;
     public IObservable<ServiceLogEvent> ServiceLogs => _serviceLogs;
     public IObservable<GroupLogEvent> GroupLogs => _groupLogs;
+    public IReadOnlyDictionary<ServiceId, ServiceRuntime> Services => _services;
 
     public Supervisor(ConfigDefinition config, IRunnerFactory runnerFactory)
     {
@@ -163,6 +164,7 @@ public sealed class Supervisor : ISupervisor
 
         runtime.SetProcess(process);
         runtime.Status = ServiceStatus.Running;
+        runtime.StartedAt = DateTime.UtcNow;
 
         _ = process.Ready.Task.ContinueWith(
             (Task _) =>

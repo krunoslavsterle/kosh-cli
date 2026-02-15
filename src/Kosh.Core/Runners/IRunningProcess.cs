@@ -6,6 +6,7 @@ namespace Kosh.Core.Runners;
 public interface IRunningProcess
 {
     ServiceId ServiceId { get; }
+    int Pid { get; }
 
     IObservable<ProcessLog> Logs { get; }
     TaskCompletionSource<int> Ready { get; }
