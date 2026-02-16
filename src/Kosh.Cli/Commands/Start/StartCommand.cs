@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using Kosh.Api;
 using Kosh.Cli.Rendering;
 using Kosh.Core.Constants;
+using Kosh.Core.Logs;
 using Kosh.Core.Runtime;
 using Kosh.Runners;
 using Spectre.Console;
@@ -37,10 +39,13 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 
         KoshConsole.Success("Loaded configuration: [grey]koshconfig.yaml[/].");
 
+        var buffer = new LogRingBuffer();
         var supervisor = new Supervisor.Supervisor(
             configDefinitionResult.Value,
             new RunnerFactory()
         );
+
+        ApiHost.Start(supervisor, buffer, ct);
 
         var result = await supervisor.StartAllAsync(CancellationToken.None);
         if (result.IsFailed)

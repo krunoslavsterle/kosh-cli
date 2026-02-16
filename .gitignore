@@ -7,6 +7,8 @@ bin/
 obj/
 out/
 artifacts/
+/src/Kosh.Api/dashboard/*
+
 
 # User-specific files
 *.user
