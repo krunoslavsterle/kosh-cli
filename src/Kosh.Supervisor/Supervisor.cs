@@ -32,6 +32,7 @@ public sealed class Supervisor : ISupervisor
     public IObservable<ServiceLogEvent> ServiceLogs => _serviceLogs;
     public IObservable<GroupLogEvent> GroupLogs => _groupLogs;
     public IReadOnlyDictionary<ServiceId, ServiceRuntime> Services => _services;
+    public IReadOnlyDictionary<GroupId, GroupRuntime> Groups => _groups;
 
     public Supervisor(ConfigDefinition config, IRunnerFactory runnerFactory)
     {
@@ -47,7 +48,7 @@ public sealed class Supervisor : ISupervisor
                 var sRuntime = new ServiceRuntime(service);
                 _services[service.Id] = sRuntime;
                 // _serviceNameToId[service.Name] = service.Id;
-                serviceRuntimes.Add(new ServiceRuntime(service));
+                serviceRuntimes.Add(sRuntime);
             }
 
             var groupRuntime = new GroupRuntime(group, serviceRuntimes);
@@ -212,6 +213,23 @@ public sealed class Supervisor : ISupervisor
             },
             ct
         );
+
+        return Result.Ok();
+    }
+
+    public async Task<Result> StopServiceAsync(ServiceId serviceId, CancellationToken ct)
+    {
+        if (!_services.TryGetValue(serviceId, out var runtime))
+            return Result.Fail($"Service '{serviceId}' not found.");
+
+        if (runtime.Status != ServiceStatus.Running)
+            return Result.Fail($"Service '{serviceId}' not running.");
+
+        await runtime!.Process!.StopAsync(ct);
+        runtime.Status = ServiceStatus.Stopped;
+        runtime.StartedAt = DateTime.UtcNow;
+
+        _serviceEvents.OnNext(runtime);
 
         return Result.Ok();
     }

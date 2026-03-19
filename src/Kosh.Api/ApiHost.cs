@@ -1,4 +1,5 @@
-﻿using Kosh.Core.Logs;
+﻿using Kosh.Api.Endpoints;
+using Kosh.Core.Logs;
 using Kosh.Core.Supervisor;
 using Microsoft.Extensions.FileProviders;
 
@@ -15,15 +16,16 @@ public class ApiHost
     {
         var builder = WebApplication.CreateBuilder();
 
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            options.ListenLocalhost(port);
-        });
+        builder.WebHost.ConfigureKestrel(options => { options.ListenLocalhost(port); });
 
         builder.Services.AddSingleton(supervisor);
         builder.Services.AddSingleton(buffer);
 
         var app = builder.Build();
+
+        app.MapStatusEndpoints();
+        app.MapStopServiceEndpoint();
+        app.MapStartServiceEndpoint();
 
         // Serve frontend
         var dashboardPath = Path.Combine(AppContext.BaseDirectory, "dashboard");
