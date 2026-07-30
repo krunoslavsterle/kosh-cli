@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+
 namespace Kosh.Core.Logs;
 
 public class LogRingBuffer
@@ -5,6 +7,10 @@ public class LogRingBuffer
     private readonly LogEntry[] _buffer;
     private int _nextIndex = 0;
     private int _count = 0;
+
+    private readonly Channel<LogEntry> _channel = Channel.CreateUnbounded<LogEntry>(
+        new UnboundedChannelOptions { SingleReader = false, SingleWriter = false }
+    );
 
     public LogRingBuffer(int capacity = 20000)
     {
@@ -16,6 +22,8 @@ public class LogRingBuffer
         _buffer[_nextIndex] = entry;
         _nextIndex = (_nextIndex + 1) % _buffer.Length;
         _count = Math.Min(_count + 1, _buffer.Length);
+
+        _channel.Writer.TryWrite(entry);
     }
 
     public IReadOnlyList<LogEntry> GetRange(int offset, int limit)
@@ -29,5 +37,10 @@ public class LogRingBuffer
         }
 
         return result;
+    }
+
+    public ChannelReader<LogEntry> Subscribe()
+    {
+        return _channel.Reader;
     }
 }

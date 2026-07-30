@@ -1,5 +1,6 @@
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
+import { LogViewer } from "../components/LogViewer";
 
 export default function HomeView() {
   return (
@@ -7,6 +8,8 @@ export default function HomeView() {
       <Header></Header>
       <div className="flex-1 flex overflow-hidden">
         <Sidebar currentView={"all"}></Sidebar>
+
+        <LogViewer />
       </div>
     </div>
   );

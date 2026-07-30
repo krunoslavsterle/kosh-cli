@@ -2,9 +2,11 @@ using System.ComponentModel;
 using Kosh.Api;
 using Kosh.Cli.Rendering;
 using Kosh.Core.Constants;
+using Kosh.Core.Events;
 using Kosh.Core.Logs;
 using Kosh.Core.Runtime;
 using Kosh.Runners;
+using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -44,6 +46,28 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             configDefinitionResult.Value,
             new RunnerFactory()
         );
+
+        supervisor.ServiceEvents.Subscribe(runtime =>
+        {
+            buffer.Add(new LogEntry
+            {
+                Service = runtime.Definition.Name,
+                Level = LogLevel.Information,
+                Message = runtime.Status.ToString(),
+                Timestamp = DateTimeOffset.UtcNow,
+            });
+        });
+
+        supervisor.ServiceLogs.Subscribe(log =>
+        {
+            buffer.Add(new LogEntry
+            {
+                Service = log.ServiceName,
+                Level = log.Type == LogType.Info ? LogLevel.Information : LogLevel.Error,
+                Message = log.Line,
+                Timestamp = DateTimeOffset.UtcNow,
+            });
+        });
 
         ApiHost.Start(supervisor, buffer, ct);
 

@@ -6,7 +6,7 @@ namespace Kosh.Api.Endpoints;
 
 public static class StopServiceEndpoint
 {
-    public static void MapStopServiceEndpoint(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapStopServiceEndpoint(this IEndpointRouteBuilder app)
     {
         app.MapPost(
             "/api/services/{id}/stop", async
@@ -29,5 +29,7 @@ public static class StopServiceEndpoint
                 return Results.NoContent();
             }
         );
+
+        return app;
     }
 }

@@ -20,13 +20,6 @@ export default function Header() {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  //   const runningCount = services.filter((s) => s.status === "running").length;
-  //   const stoppedCount = services.filter((s) => s.status === "stopped").length;
-  //   const errorCount = services.filter((s) => s.status === "error").length;
-
-  const runningCount = 3;
-  const stoppedCount = 1;
-  const errorCount = 0;
   const isServicePanelOpen = true;
   const cpuUsage = data?.systemStatus?.cpuPercentage;
   const memoryUsage = data?.systemStatus?.memoryUsage;
@@ -55,10 +48,29 @@ export default function Header() {
           <span className="text-[#858585] uppercase tracking-wider">
             Services:
           </span>
-          <span className="text-[#4ec9b0]">{runningCount} Running</span>
-          <span className="text-[#858585]">{stoppedCount} Stopped</span>
-          {errorCount > 0 && (
-            <span className="text-[#f48771]">{errorCount} Error</span>
+
+          {data?.systemStatus.servicesStarting > 0 && (
+            <span className="text-[#4ec9b0]">
+              {data?.systemStatus.servicesStarting} Starting
+            </span>
+          )}
+
+          {data?.systemStatus.servicesRunning > 0 && (
+            <span className="text-[#4ec9b0]">
+              {data?.systemStatus.servicesRunning} Running
+            </span>
+          )}
+
+          {data?.systemStatus.servicesStopped > 0 && (
+            <span className="text-[#858585]">
+              {data?.systemStatus.servicesStopped} Stopped
+            </span>
+          )}
+
+          {data?.systemStatus.servicesFailed > 0 && (
+            <span className="text-[#f48771]">
+              {data?.systemStatus.servicesFailed} Failed
+            </span>
           )}
         </div>
 

@@ -16,16 +16,21 @@ public class ApiHost
     {
         var builder = WebApplication.CreateBuilder();
 
-        builder.WebHost.ConfigureKestrel(options => { options.ListenLocalhost(port); });
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenLocalhost(port);
+        });
 
         builder.Services.AddSingleton(supervisor);
         builder.Services.AddSingleton(buffer);
 
         var app = builder.Build();
 
-        app.MapStatusEndpoints();
-        app.MapStopServiceEndpoint();
-        app.MapStartServiceEndpoint();
+        app.MapStatusEndpoints()
+            .MapStopServiceEndpoint()
+            .MapStartServiceEndpoint()
+            .MapGetLogsStreamEndpoints()
+            .MapGetLogsEndpoints();
 
         // Serve frontend
         var dashboardPath = Path.Combine(AppContext.BaseDirectory, "dashboard");

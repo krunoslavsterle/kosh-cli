@@ -39,7 +39,7 @@ export default function Sidebar({ currentView }) {
       case "Failed":
         return "text-[#f48771]";
       case "Stopped":
-        return "text-[#f48771]";
+        return "text-[#6e7681]";
       case "Starting":
         return "text-[#dcdcaa]";
       default:
