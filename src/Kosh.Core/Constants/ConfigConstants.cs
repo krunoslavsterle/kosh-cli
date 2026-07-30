@@ -14,6 +14,6 @@ public static class ConfigConstants
         "dotnet-run",
         "caddy",
         "docker-compose",
-        "node",
+        "npm",
     ];
 }
