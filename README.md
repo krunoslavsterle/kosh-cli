@@ -119,7 +119,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
 
   - name: frontend-react
-    type: node
+    type: npm
     path: ./src/apps/kosh-test-project-react
 
 hosts:

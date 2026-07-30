@@ -21,7 +21,7 @@ services:
     path: ./src/apps/KoshTestProject.Api
     args: "--urls http://localhost:6001"
     inheritRootEnv: true
-    
+
   - name: admin-api
     type: dotnet-watch
     path: ./src/apps/KoshTestProject.Admin.Api
@@ -30,7 +30,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
 
   - name: frontend-react
-    type: node
+    type: npm
     path: ./src/apps/kosh-test-project-react
 
 hosts:
