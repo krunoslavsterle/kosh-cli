@@ -32,7 +32,7 @@ internal sealed class CaddyRunner : IRunner
         try
         {
             if (!process.Start())
-                return null!;
+                return Task.FromResult(Result.Fail<IRunningProcess>("Failed to start caddy process."));
         }
         catch (Exception e)
         {

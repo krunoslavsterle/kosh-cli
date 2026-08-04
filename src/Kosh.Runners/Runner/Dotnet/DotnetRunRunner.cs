@@ -38,7 +38,7 @@ internal sealed class DotnetRunRunner : IRunner
         try
         {
             if (!process.Start())
-                return null!;
+                return Task.FromResult(Result.Fail<IRunningProcess>("Failed to start dotnet run process."));
         }
         catch (Exception e)
         {

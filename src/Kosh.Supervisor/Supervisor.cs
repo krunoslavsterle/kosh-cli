@@ -46,7 +46,7 @@ public sealed class Supervisor : ISupervisor
                 var sRuntime = new ServiceRuntime(service);
                 _services[service.Id] = sRuntime;
                 // _serviceNameToId[service.Name] = service.Id;
-                serviceRuntimes.Add(new ServiceRuntime(service));
+                serviceRuntimes.Add(sRuntime);
             }
 
             var groupRuntime = new GroupRuntime(group, serviceRuntimes);
@@ -62,6 +62,27 @@ public sealed class Supervisor : ISupervisor
             var result = await StartGroupAsync(group.Id, ct);
             if (result.IsFailed)
                 return result;
+        }
+
+        return Result.Ok();
+    }
+
+    public async Task<Result> StopAllAsync(CancellationToken ct)
+    {
+        foreach (var group in _groups.Values)
+        {
+            group.Status = GroupStatus.Completed;
+            _groupEvents.OnNext(group);
+        }
+
+        foreach (var runtime in _services.Values)
+        {
+            if (runtime.Process != null)
+            {
+                runtime.Status = ServiceStatus.Stopped;
+                _serviceEvents.OnNext(runtime);
+                await runtime.Process.StopAsync(ct);
+            }
         }
 
         return Result.Ok();
@@ -89,7 +110,7 @@ public sealed class Supervisor : ISupervisor
                 return result;
             }
 
-            isBlocking = service.Definition.RunnerDefinition.DefaultExecutionMode != ExecutionMode.NonBlocking;
+            isBlocking |= service.Definition.RunnerDefinition.DefaultExecutionMode != ExecutionMode.NonBlocking;
 
             if (service.Definition.RunnerDefinition.DefaultExecutionMode == ExecutionMode.BlockingUntilExit)
                 tasks.Add(_services[service.Definition.Id].Completion.Task);

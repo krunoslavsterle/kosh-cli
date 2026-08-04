@@ -34,7 +34,7 @@ internal sealed class DotnetWatchRunner : IRunner
         try
         {
             if (!process.Start())
-                return null!;
+                return Task.FromResult(Result.Fail<IRunningProcess>("Failed to start dotnet watch process."));
         }
         catch (Exception e)
         {

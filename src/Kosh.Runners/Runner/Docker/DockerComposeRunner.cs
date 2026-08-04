@@ -37,7 +37,7 @@ internal sealed class DockerComposeRunner : IRunner
         try
         {
             if (!process.Start())
-                return null!;
+                return Task.FromResult(Result.Fail<IRunningProcess>("Failed to start docker process."));
         }
         catch (Exception e)
         {
@@ -59,7 +59,7 @@ internal sealed class DockerComposeRunner : IRunner
     }
 
     // TODO: This is a temp solution. Implement readiness check based on `docker compose config --services`
-    private Task<bool> WaitForComposeReady(CancellationToken ct, string workingDirectory)
+    private static async Task<bool> WaitForComposeReady(CancellationToken ct, string workingDirectory)
     {
         var lastCount = -1;
         var checkCount = 0;
@@ -69,35 +69,35 @@ internal sealed class DockerComposeRunner : IRunner
             if (++checkCount > 50)
             {
                 Console.WriteLine("Waiting for docker compose up for too long!");
-                return Task.FromResult(false);
+                return false;
             }
 
             var containers = GetComposeContainers(workingDirectory);
 
             if (containers.Count == 0)
             {
-                Thread.Sleep(300);
+                await Task.Delay(300, ct);
                 continue;
             }
 
             if (lastCount != -1 && containers.Count == lastCount)
             {
                 if (containers.All(c => c.State == "running"))
-                    return Task.FromResult(false);
+                    return true;
             }
 
             lastCount = containers.Count;
-            Thread.Sleep(300);
+            await Task.Delay(300, ct);
         }
 
-        return Task.FromResult(false);
+        return false;
     }
 
     private static List<(string Name, string State)> GetComposeContainers(string workingDirectory)
     {
         try
         {
-            var p = new Process
+            using var p = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {

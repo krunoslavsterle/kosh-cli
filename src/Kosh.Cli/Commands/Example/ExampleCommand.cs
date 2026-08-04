@@ -16,9 +16,15 @@ public class ExampleCommand : Command<ExampleCommand.ExampleSettings>
     )
     {
         var exeDir = AppContext.BaseDirectory;
-        var yaml = ConfigProcessor.ReadConfig(exeDir, ConfigType.ExampleConfig);
+        var yamlResult = ConfigProcessor.ReadConfig(exeDir, ConfigType.ExampleConfig);
 
-        KoshConsole.Info($"\n\n{yaml}");
+        if (yamlResult.IsFailed)
+        {
+            KoshConsole.Error(yamlResult.Errors[0].Message);
+            return 1;
+        }
+
+        KoshConsole.Info($"\n\n{yamlResult.Value}");
         return 0;
     }
 }

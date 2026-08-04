@@ -54,23 +54,40 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
                 KoshConsole.WriteServiceErrorLog(log.ServiceName, log.Line);
         });
 
-        var result = await supervisor.StartAllAsync(CancellationToken.None);
-        if (result.IsFailed)
+        try
         {
-            KoshConsole.Error(result.Errors[0].Message);
-            return -1;
-        }
+            var result = await supervisor.StartAllAsync(ct);
+            if (result.IsFailed)
+            {
+                KoshConsole.Error(result.Errors[0].Message);
+                return -1;
+            }
 
-        while (!ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(true);
+
+                    if (key.Key == ConsoleKey.Q)
+                        break;
+                }
+                else
+                {
+                    await Task.Delay(100, ct);
+                }
+            }
+        }
+        catch (OperationCanceledException)
         {
-            var key = Console.ReadKey(true);
-
-            if (key.Key == ConsoleKey.Q)
-                break;
-
-            // TODO: HANDLE INPUT HERE.
+            // Expected on cancellation
         }
-
+        finally
+        {
+            KoshConsole.Info("Stopping all services...");
+            await supervisor.StopAllAsync(CancellationToken.None);
+            KoshConsole.Success("All services stopped.");
+        }
 
         return 0;
     }

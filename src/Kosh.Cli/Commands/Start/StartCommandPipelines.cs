@@ -54,7 +54,7 @@ public static class StartCommandPipeline
         if (domainsResult.IsFailed)
         {
             KoshConsole.Error(domainsResult.Errors[0].Message);
-            Result.Fail("Fail");
+            return Result.Fail("Fail");
         }
         
         return configDefinition;

@@ -26,8 +26,8 @@ public class InitCommand : Command<InitCommand.InitSettings>
 
         if (createResult.IsFailed)
         {
-            KoshConsole.Info(createResult.Errors.First().Message);
-            return 0;
+            KoshConsole.Error(createResult.Errors.First().Message);
+            return 1;
         }
 
         KoshConsole.Success($"{ConfigConstants.ConfigFile} has been created in the current directory");

@@ -6,9 +6,10 @@ using Kosh.Core.ValueObjects;
 
 namespace Kosh.Runners;
 
-public sealed class RunningProcess : IRunningProcess
+public sealed class RunningProcess : IRunningProcess, IDisposable
 {
     private readonly Subject<ProcessLog> _logs = new();
+    private bool _disposed;
 
     public ServiceId ServiceId { get; }
     public IObservable<ProcessLog> Logs => _logs;
@@ -32,20 +33,34 @@ public sealed class RunningProcess : IRunningProcess
             if (e.Data != null)
                 _logs.OnNext(new ProcessLog(LogType.Error, e.Data));
         };
+
+        _process.Exited += (_, _) =>
+        {
+            _logs.OnCompleted();
+        };
     }
 
-    public Task<int> WaitForExitAsync(CancellationToken ct)
+    public async Task<int> WaitForExitAsync(CancellationToken ct)
     {
-        return Task.Run(() =>
+        try
         {
-            _process.WaitForExit();
+            await _process.WaitForExitAsync(ct);
             return _process.ExitCode;
-        }, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return -1;
+        }
+        finally
+        {
+            _logs.OnCompleted();
+        }
     }
 
     public Task<int> SetRuntimeReady(CancellationToken ct)
     {
-        throw new NotImplementedException();
+        Ready.TrySetResult(1);
+        return Task.FromResult(1);
     }
 
     public Task StopAsync(CancellationToken ct)
@@ -53,13 +68,40 @@ public sealed class RunningProcess : IRunningProcess
         try
         {
             if (!_process.HasExited)
-                _process.Kill(true);
+            {
+                _process.Kill(entireProcessTree: true);
+            }
         }
         catch
         {
-            // TODO: HANDLE THIS.
+            // Best effort
+        }
+        finally
+        {
+            _logs.OnCompleted();
         }
 
         return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        try
+        {
+            if (!_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+        }
+        catch
+        {
+            // Best effort
+        }
+
+        _process.Dispose();
+        _logs.Dispose();
     }
 }

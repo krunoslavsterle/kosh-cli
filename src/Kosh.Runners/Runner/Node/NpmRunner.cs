@@ -35,7 +35,7 @@ internal sealed class NpmRunner : IRunner
         try
         {
             if (!process.Start())
-                return null!;
+                return Task.FromResult(Result.Fail<IRunningProcess>("Failed to start npm process."));
         }
         catch (Exception e)
         {
