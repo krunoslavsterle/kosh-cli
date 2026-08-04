@@ -14,6 +14,10 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         [CommandOption("-c|--config <PATH>")]
         [Description($"Optional path to a custom {ConfigConstants.ConfigFile}")]
         public string? ConfigPath { get; set; }
+
+        [CommandOption("--no-tui")]
+        [Description("Disables interactive TUI dashboard and streams logs to plain stdout")]
+        public bool NoTui { get; set; }
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings,
@@ -25,14 +29,65 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 
         var supervisor = new Supervisor.Supervisor(configDefinitionResult.Value, new RunnerFactory());
 
-        // Subscribe to Group events
+        // Use TUI mode if interactive and --no-tui is not specified
+        if (!settings.NoTui && !Console.IsOutputRedirected)
+        {
+            Terminal.Gui.Application.Init();
+            var top = Terminal.Gui.Application.Top;
+            var dashboard = new KoshTuiDashboard(configDefinitionResult.Value.ProjectName);
+            top.Add(dashboard);
+
+            // Global Key Interception (Evaluated BEFORE focused controls swallow keys)
+            Terminal.Gui.Application.RootKeyEvent = (keyEvent) => dashboard.HandleRootKeyEvent(keyEvent);
+
+            ConsoleCancelEventHandler cancelHandler = (_, e) =>
+            {
+                e.Cancel = true;
+                Terminal.Gui.Application.MainLoop?.Invoke(() => Terminal.Gui.Application.RequestStop());
+            };
+            Console.CancelKeyPress += cancelHandler;
+
+            supervisor.ServiceEvents.Subscribe(runtime =>
+            {
+                dashboard.UpdateServiceStatus(runtime);
+            });
+
+            supervisor.ServiceLogs.Subscribe(log =>
+            {
+                dashboard.AppendLog(log.ServiceName, log.Line, log.Type == LogType.Error);
+            });
+
+            supervisor.GroupLogs.Subscribe(log =>
+            {
+                dashboard.AppendLog($"{log.GroupName}-group", log.Line, log.Type == LogType.Error);
+            });
+
+            // Start services in background
+            var startTask = supervisor.StartAllAsync(ct);
+
+            try
+            {
+                Terminal.Gui.Application.Run();
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+                Terminal.Gui.Application.Shutdown();
+                KoshConsole.Info("Stopping all services...");
+                await supervisor.StopAllAsync(CancellationToken.None);
+                KoshConsole.Success("All services stopped.");
+            }
+
+            return 0;
+        }
+
+        // Fallback / Plain Text mode (--no-tui or non-interactive)
         supervisor.GroupEvents.Subscribe(runtime =>
         {
             if (!runtime.Definition.IsVirtualGroup)
                 KoshConsole.WriteServiceLog($"{runtime.Definition.Name}-group", runtime.Status.ToString());
         });
 
-        // Subscribe to Service events
         supervisor.ServiceEvents.Subscribe(runtime =>
         {
             KoshConsole.WriteServiceLog(runtime.Definition.Name, runtime.Status.ToString());
