@@ -15,7 +15,7 @@ internal sealed class CaddyRunner : IRunner
             WorkingDirectory = service.WorkingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = false,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };

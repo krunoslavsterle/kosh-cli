@@ -16,7 +16,7 @@ internal sealed class DockerComposeRunner : IRunner
             WorkingDirectory = service.WorkingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = false,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };

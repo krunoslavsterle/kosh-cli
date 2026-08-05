@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Kosh.Core.Events;
 
 namespace Kosh.Cli.Rendering;
@@ -26,6 +27,26 @@ public sealed class BoundedLogBuffer
     {
         lock (_lock)
         {
+            // Multiline Stack Trace Grouping:
+            // If the line is a stack trace continuation line from the same service, merge with previous entry!
+            if (_allLogs.Count > 0 && IsStackTraceContinuation(entry.Message))
+            {
+                var lastEntry = _allLogs.Last!.Value;
+                if (lastEntry.ServiceName.Equals(entry.ServiceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var mergedEntry = lastEntry with { Message = lastEntry.Message + "\n" + entry.Message };
+                    _allLogs.RemoveLast();
+                    _allLogs.AddLast(mergedEntry);
+
+                    if (_serviceLogs.TryGetValue(entry.ServiceName, out var sList) && sList.Count > 0)
+                    {
+                        sList.RemoveLast();
+                        sList.AddLast(mergedEntry);
+                    }
+                    return;
+                }
+            }
+
             _allLogs.AddLast(entry);
 
             if (!_serviceLogs.TryGetValue(entry.ServiceName, out var list))
@@ -50,6 +71,22 @@ public sealed class BoundedLogBuffer
         }
     }
 
+    private static bool IsStackTraceContinuation(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        var trimmed = message.TrimStart();
+        return message.StartsWith('\t') ||
+               message.StartsWith("   ") ||
+               message.StartsWith("  ") ||
+               trimmed.StartsWith("at ") ||
+               trimmed.StartsWith("---> ") ||
+               trimmed.StartsWith("Caused by:") ||
+               trimmed.StartsWith("File \"") ||
+               trimmed.StartsWith("Traceback ");
+    }
+
     public List<LogEntry> GetLogs(string? serviceFilter = null)
     {
         lock (_lock)
@@ -58,6 +95,39 @@ public sealed class BoundedLogBuffer
                 return _allLogs.ToList();
 
             return _serviceLogs.TryGetValue(serviceFilter, out var list) ? list.ToList() : new List<LogEntry>();
+        }
+    }
+
+    public List<LogEntry> SearchLogs(string? targetService, string query)
+    {
+        lock (_lock)
+        {
+            var baseLogs = GetLogs(targetService);
+            if (string.IsNullOrWhiteSpace(query))
+                return baseLogs;
+
+            query = query.Trim();
+
+            // Detect Regex mode: /pattern/
+            bool isRegex = query.StartsWith('/') && query.EndsWith('/') && query.Length > 2;
+
+            if (isRegex)
+            {
+                var pattern = query[1..^1];
+                try
+                {
+                    var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                    return baseLogs.Where(e => regex.IsMatch(e.Message) || regex.IsMatch(e.ServiceName)).ToList();
+                }
+                catch
+                {
+                    return baseLogs.Where(e => e.Message.Contains(pattern, StringComparison.OrdinalIgnoreCase) ||
+                                               e.ServiceName.Contains(pattern, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+            }
+
+            return baseLogs.Where(e => e.Message.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                                       e.ServiceName.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
         }
     }
 

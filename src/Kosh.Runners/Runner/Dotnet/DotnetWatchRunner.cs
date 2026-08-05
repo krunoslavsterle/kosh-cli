@@ -15,7 +15,7 @@ internal sealed class DotnetWatchRunner : IRunner
             WorkingDirectory = service.WorkingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = false,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -26,6 +26,11 @@ internal sealed class DotnetWatchRunner : IRunner
             psi.ArgumentList.Add(arg);
 
         DotnetHelper.HandleDotnetRootEnv(psi);
+
+        if (!psi.Environment.ContainsKey("DOTNET_USE_POLLING_FILE_WATCHER"))
+        {
+            psi.Environment["DOTNET_USE_POLLING_FILE_WATCHER"] = "1";
+        }
 
         psi.LoadEnvs(service);
 

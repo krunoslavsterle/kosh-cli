@@ -1,0 +1,11 @@
+kosh-demo.react.localhost {
+    reverse_proxy localhost:3000
+}
+
+kosh-demo.angular.localhost {
+    reverse_proxy localhost:4200
+}
+
+kosh-demo.api.localhost {
+    reverse_proxy localhost:6001
+}

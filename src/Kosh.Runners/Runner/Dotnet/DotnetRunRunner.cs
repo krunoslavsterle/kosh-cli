@@ -15,7 +15,7 @@ internal sealed class DotnetRunRunner : IRunner
             WorkingDirectory = service.WorkingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = false,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };

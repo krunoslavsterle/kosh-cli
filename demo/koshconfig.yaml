@@ -1,0 +1,45 @@
+projectName: Kosh Demo Suite
+
+services:
+  - name: infra
+    type: docker-compose
+    path: ./devops/local
+    logs: none
+
+  - name: gateway
+    type: caddy
+    logs: error
+    path: ./devops/local
+    args: "--config Caddyfile"
+
+  - name: migrations
+    type: dotnet-run
+    path: ./src/KoshDemo.Migrations
+
+  - name: api
+    type: dotnet-watch
+    path: ./src/KoshDemo.Api
+    args: "--urls http://localhost:6001"
+    inheritEnv: true
+    env:
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+
+  - name: worker
+    type: dotnet-watch
+    path: ./src/KoshDemo.Worker
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+
+  - name: frontend-react
+    type: npm
+    path: ./src/KoshDemo.FrontendReact
+
+  - name: frontend-angular
+    type: npm
+    path: ./src/KoshDemo.FrontendAngular
+
+hosts:
+  - domain: kosh-demo.react.localhost
+  - domain: kosh-demo.angular.localhost
+  - domain: kosh-demo.api.localhost
