@@ -34,7 +34,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         {
             using var app = Terminal.Gui.App.Application.Create();
             app.Init();
-            using var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value.ProjectName, supervisor);
+            using var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value, supervisor);
 
             var disposables = new List<IDisposable>();
 

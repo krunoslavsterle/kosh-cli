@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Drawing;
 using System.Text;
+using Kosh.Core.Definitions;
 using Kosh.Core.Runtime;
 using Kosh.Core.Supervisor;
 using Kosh.Core.ValueObjects;
@@ -48,12 +49,26 @@ public sealed class KoshTuiDashboard : Window
 
     private readonly ConcurrentDictionary<string, ServiceId> _serviceNameToId = new(StringComparer.OrdinalIgnoreCase);
     private readonly ISupervisor? _supervisor;
+    
+    private readonly ConfigDefinition _config;
+    private readonly Dictionary<string, string> _serviceGroups = new();
+    private readonly ConcurrentDictionary<string, ServiceDefinition> _serviceDefs = new();
 
-    public KoshTuiDashboard(IApplication app, string projectName, ISupervisor? supervisor = null)
+    public KoshTuiDashboard(IApplication app, ConfigDefinition config, ISupervisor? supervisor = null)
     {
         _app = app;
         _supervisor = supervisor;
-        Title = $" 🚀 kosh │ {projectName} ";
+        _config = config;
+        Title = $" 🚀 kosh │ {config.ProjectName} ";
+
+        foreach (var group in config.ServiceGroups)
+        {
+            foreach (var service in group.Services)
+            {
+                _serviceGroups[service.Name] = group.Name;
+                _serviceDefs[service.Name] = service;
+            }
+        }
         X = 0;
         Y = 0;
         Width = Dim.Fill();
@@ -69,7 +84,7 @@ public sealed class KoshTuiDashboard : Window
 
         ApplyNativeTerminalTheme();
 
-        _headerView = new HeaderView(_serviceStatuses, _orderedServices)
+        _headerView = new HeaderView(_serviceStatuses, _orderedServices, _serviceDefs, _serviceGroups)
         {
             X = 0,
             Y = 0,
@@ -177,6 +192,7 @@ public sealed class KoshTuiDashboard : Window
         _statusBar.AddShortcutAt(0, new Shortcut { Key = Key.Q, Text = "Quit" });
         _statusBar.AddShortcutAt(1, new Shortcut { Key = Key.H, Text = "Help" });
         _statusBar.AddShortcutAt(2, new Shortcut { Key = Key.C, Text = "Clear Logs" });
+        _statusBar.AddShortcutAt(3, new Shortcut { Key = Key.S, Text = "Expand Services" });
 
         Add(_headerFrame, _logFrame, _cmdFrame, _statusBar);
     }
@@ -582,6 +598,18 @@ public sealed class KoshTuiDashboard : Window
             return true;
         }
 
+        if (ch == 's' || ch == 'S')
+        {
+            _headerView.IsExpanded = !_headerView.IsExpanded;
+            _headerFrame.Title = _headerView.IsExpanded ? "Status Overview (Expanded)" : "Status Overview";
+            
+            _statusBar.RemoveShortcut(3);
+            _statusBar.AddShortcutAt(3, new Shortcut { Key = Key.S, Text = _headerView.IsExpanded ? "Compact Services" : "Expand Services" });
+
+            RefreshHeader();
+            return true;
+        }
+
         if (ch == 'q' || ch == 'Q')
         {
             ConfirmAndQuit();
@@ -788,6 +816,7 @@ public sealed class KoshTuiDashboard : Window
                 string.Format("  {0,-24} {1}\n", "Mouse Wheel / Touchpad", "Scroll logs smoothly") +
                 string.Format("  {0,-24} {1}\n", "Tab", "Cycle command suggestions") +
                 string.Format("  {0,-24} {1}\n", "Shift + Drag", "Native terminal text selection") +
+                string.Format("  {0,-24} {1}\n", "S", "Compact/Expand Service View") +
                 string.Format("  {0,-24} {1}\n", "H", "Open this Help dialog") +
                 string.Format("  {0,-24} {1}\n", "C", "Clear log buffer") +
                 string.Format("  {0,-24} {1}", "Q", "Quit Kosh CLI");

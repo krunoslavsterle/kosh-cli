@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Drawing;
 using System.Text;
+using System.Text.RegularExpressions;
+using Kosh.Core.Definitions;
 using Kosh.Core.Runtime;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
@@ -104,7 +106,11 @@ internal sealed class HeaderView : View
 {
     private readonly ConcurrentDictionary<string, ServiceStatus> _serviceStatuses;
     private readonly List<string> _orderedServices;
+    private readonly ConcurrentDictionary<string, ServiceDefinition> _serviceDefs;
+    private readonly Dictionary<string, string> _serviceGroups;
+    
     private int _lastNeededHeight = -1;
+    public bool IsExpanded { get; set; } = false;
 
     public event Action? HeightNeededChanged;
 
@@ -122,6 +128,11 @@ internal sealed class HeaderView : View
         List<string> snapshot;
         lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
         if (snapshot.Count == 0) return 1;
+
+        if (IsExpanded)
+        {
+            return 2 + snapshot.Count;
+        }
 
         int currentX = 1;
         int currentY = 0;
@@ -144,10 +155,13 @@ internal sealed class HeaderView : View
         return currentY + 1;
     }
 
-    public HeaderView(ConcurrentDictionary<string, ServiceStatus> statuses, List<string> ordered)
+    public HeaderView(ConcurrentDictionary<string, ServiceStatus> statuses, List<string> ordered, 
+                      ConcurrentDictionary<string, ServiceDefinition> defs, Dictionary<string, string> groups)
     {
         _serviceStatuses = statuses;
         _orderedServices = ordered;
+        _serviceDefs = defs;
+        _serviceGroups = groups;
     }
 
     protected override bool OnDrawingContent(DrawContext? context)
@@ -159,6 +173,77 @@ internal sealed class HeaderView : View
 
         var normalAttr = new Attribute(Color.White, Color.None);
         var dividerAttr = new Attribute(Color.DarkGray, Color.None);
+
+        if (IsExpanded)
+        {
+            var headerAttr = new Attribute(Color.BrightYellow, Color.None);
+
+            string header = string.Format("{0,-20} {1,-16} {2,-20} {3,-8} {4,-8} {5,-10} {6,-12}", 
+                "Service", "Status", "Group", "Port", "CPU", "Memory", "ManualStart");
+
+            SetAttribute(headerAttr);
+            AddStr(1, 0, header);
+
+            SetAttribute(dividerAttr);
+            AddStr(1, 1, new string('─', header.Length));
+
+            int cY = 2;
+            foreach (var service in snapshot)
+            {
+                if (_serviceStatuses.TryGetValue(service, out var status))
+                {
+                    _serviceDefs.TryGetValue(service, out var def);
+                    _serviceGroups.TryGetValue(service, out var groupName);
+                    
+                    groupName ??= "-";
+                    string port = "-";
+                    if (def != null)
+                    {
+                        if (def.Environment.TryGetValue("PORT", out var p)) port = p;
+                        else if (def.Environment.TryGetValue("ASPNETCORE_URLS", out var urls))
+                        {
+                            var match = Regex.Match(urls, @"http[s]?://.*:(\d+)");
+                            if (match.Success) port = match.Groups[1].Value;
+                        }
+                        
+                        if (port == "-" && !string.IsNullOrWhiteSpace(def.Args))
+                        {
+                            var match = Regex.Match(def.Args, @"http[s]?://.*:(\d+)");
+                            if (match.Success) port = match.Groups[1].Value;
+                            else
+                            {
+                                var portMatch = Regex.Match(def.Args, @"--port\s+(\d+)");
+                                if (portMatch.Success) port = portMatch.Groups[1].Value;
+                            }
+                        }
+                    }
+                    string manualStart = def != null ? def.ManualStart.ToString().ToLower() : "-";
+                    
+                    SetAttribute(ServiceColorManager.GetColor(service));
+                    AddStr(1, cY, string.Format("{0,-20}", service.Length > 20 ? service.Substring(0, 20) : service));
+
+                    var icon = ServiceColorManager.GetStatusIcon(status);
+                    SetAttribute(ServiceColorManager.GetStatusColor(status));
+                    AddStr(22, cY, string.Format("{0,-16}", $"{icon} {status.ToString().ToLower()}"));
+
+                    SetAttribute(normalAttr);
+                    AddStr(39, cY, string.Format("{0,-20}", groupName.Length > 20 ? groupName.Substring(0, 20) : groupName));
+                    AddStr(60, cY, string.Format("{0,-8}", port.Length > 8 ? port.Substring(0, 8) : port));
+                    AddStr(69, cY, string.Format("{0,-8}", "-")); // CPU
+                    AddStr(78, cY, string.Format("{0,-10}", "-")); // Memory
+                    AddStr(89, cY, string.Format("{0,-12}", manualStart));
+                    cY++;
+                }
+            }
+
+            int h = cY;
+            if (h != _lastNeededHeight)
+            {
+                _lastNeededHeight = h;
+                HeightNeededChanged?.Invoke();
+            }
+            return true;
+        }
 
         var horizontalOffset = 1;
         var currentX = horizontalOffset;
