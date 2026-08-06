@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Text;
 using Kosh.Core.Runtime;
+using Kosh.Core.Supervisor;
+using Kosh.Core.ValueObjects;
 using Terminal.Gui;
 
 namespace Kosh.Cli.Rendering;
@@ -36,8 +38,12 @@ public sealed class KoshTuiDashboard : Window
     private int _lastConsoleWidth = Console.WindowWidth;
     private int _lastConsoleHeight = Console.WindowHeight;
 
-    public KoshTuiDashboard(string projectName)
+    private readonly ConcurrentDictionary<string, ServiceId> _serviceNameToId = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ISupervisor? _supervisor;
+
+    public KoshTuiDashboard(string projectName, ISupervisor? supervisor = null)
     {
+        _supervisor = supervisor;
         Title = $" 🚀 kosh │ {projectName} ";
         X = 0;
         Y = 0;
@@ -153,8 +159,9 @@ public sealed class KoshTuiDashboard : Window
         // 4. Status Bar
         _statusBar = new StatusBar(new[]
         {
-            new StatusItem(Key.Q, "~Q~ Quit", () => Application.RequestStop()),
+            new StatusItem(Key.Q, "~Q~ Quit", ConfirmAndQuit),
             new StatusItem(Key.Unknown, "~:~ Command (v/f)", () => OpenCmdInput()),
+            new StatusItem(Key.H, "~H~ Help", ShowHelpDialog),
             new StatusItem(Key.C, "~C~ Clear Logs", ConfirmAndClearLogs)
         })
         {
@@ -235,6 +242,7 @@ public sealed class KoshTuiDashboard : Window
     public void UpdateServiceStatus(ServiceRuntime runtime)
     {
         _serviceStatuses[runtime.Definition.Name] = runtime.Status;
+        _serviceNameToId[runtime.Definition.Name] = runtime.Definition.Id;
 
         lock (_orderedServices)
         {
@@ -314,16 +322,7 @@ public sealed class KoshTuiDashboard : Window
             }
         }
 
-        _logView.Entries = flatLines;
-
-        if (scrollToBottom)
-        {
-            _logView.ScrollToBottom();
-        }
-        else
-        {
-            _logView.SetNeedsDisplay();
-        }
+        _logView.SetLines(flatLines, scrollToBottom);
     }
 
     private void RefreshHeader()
@@ -420,13 +419,27 @@ public sealed class KoshTuiDashboard : Window
             RenderLogs(scrollToBottom: true);
             RefreshHeader();
         }
+        else if (action is "start" or "s")
+        {
+            if (parts.Length > 1)
+                StartServiceByName(parts[1]);
+        }
+        else if (action is "stop" or "st")
+        {
+            if (parts.Length > 1)
+                StopServiceByName(parts[1]);
+        }
+        else if (action is "help" or "h")
+        {
+            ShowHelpDialog();
+        }
         else if (action is "clear" or "c")
         {
             ConfirmAndClearLogs();
         }
         else if (action is "quit" or "q" or "exit")
         {
-            Application.RequestStop();
+            ConfirmAndQuit();
         }
     }
 
@@ -465,9 +478,50 @@ public sealed class KoshTuiDashboard : Window
         var lower = input.ToLowerInvariant();
         var options = new List<string>();
 
-        string[] cmds = { "view ", "find ", "clear", "quit" };
+        string[] cmds = { "view ", "find ", "start ", "s ", "stop ", "st ", "help", "clear", "quit" };
         foreach (var c in cmds)
             if (c.StartsWith(lower)) options.Add(c);
+
+        if (lower.StartsWith("s ") || lower.StartsWith("start "))
+        {
+            var prefix = lower.StartsWith("s ") ? "s " : "start ";
+            var servicePart = lower.Substring(prefix.Length);
+
+            lock (_orderedServices)
+            {
+                foreach (var s in _orderedServices)
+                {
+                    if (_serviceStatuses.TryGetValue(s, out var status))
+                    {
+                        if (status is ServiceStatus.NotStarted or ServiceStatus.Stopped or ServiceStatus.Failed)
+                        {
+                            if (s.ToLowerInvariant().StartsWith(servicePart))
+                                options.Add(prefix + s);
+                        }
+                    }
+                }
+            }
+        }
+        else if (lower.StartsWith("st ") || lower.StartsWith("stop "))
+        {
+            var prefix = lower.StartsWith("st ") ? "st " : "stop ";
+            var servicePart = lower.Substring(prefix.Length);
+
+            lock (_orderedServices)
+            {
+                foreach (var s in _orderedServices)
+                {
+                    if (_serviceStatuses.TryGetValue(s, out var status))
+                    {
+                        if (status is ServiceStatus.Running or ServiceStatus.Ready or ServiceStatus.Starting)
+                        {
+                            if (s.ToLowerInvariant().StartsWith(servicePart))
+                                options.Add(prefix + s);
+                        }
+                    }
+                }
+            }
+        }
 
         if (lower.StartsWith("v ") || lower.StartsWith("view "))
         {
@@ -572,7 +626,7 @@ public sealed class KoshTuiDashboard : Window
         {
             if (keyEvent.Key == (Key.Q | Key.CtrlMask) || keyEvent.Key == (Key.C | Key.CtrlMask))
             {
-                Application.RequestStop();
+                ConfirmAndQuit();
                 return true;
             }
             return false;
@@ -597,10 +651,17 @@ public sealed class KoshTuiDashboard : Window
             return true;
         }
 
+        // H for help
+        if (ch == 'h' || ch == 'H')
+        {
+            ShowHelpDialog();
+            return true;
+        }
+
         // Q for quit
         if (ch == 'q' || ch == 'Q')
         {
-            Application.RequestStop();
+            ConfirmAndQuit();
             return true;
         }
 
@@ -622,6 +683,15 @@ public sealed class KoshTuiDashboard : Window
         return base.ProcessHotKey(keyEvent);
     }
 
+    public void ConfirmAndQuit()
+    {
+        var result = MessageBox.Query("Quit Kosh", "Are you sure you want to stop all services and exit?", "Yes", "No");
+        if (result == 0)
+        {
+            Application.RequestStop();
+        }
+    }
+
     public void ConfirmAndClearLogs()
     {
         var result = MessageBox.Query("Clear Logs", "Are you sure you want to clear all logs?", "Yes", "No");
@@ -629,6 +699,63 @@ public sealed class KoshTuiDashboard : Window
         {
             ClearLogs();
         }
+    }
+
+    private async void StartServiceByName(string name)
+    {
+        if (_supervisor == null) return;
+        if (_serviceNameToId.TryGetValue(name, out var id))
+        {
+            await _supervisor.StartServiceAsync(id, CancellationToken.None);
+        }
+    }
+
+    private async void StopServiceByName(string name)
+    {
+        if (_supervisor == null) return;
+        if (_serviceNameToId.TryGetValue(name, out var id))
+        {
+            await _supervisor.StopServiceAsync(id, CancellationToken.None);
+        }
+    }
+
+    public void ShowHelpDialog()
+    {
+        var dialog = new Dialog(" 💡 KOSH CLI HELP ", 72, 22);
+
+        var helpText =
+            "────────────────────────── COMMANDS ──────────────────────────\n" +
+            string.Format("  {0,-25} {1}\n", "view <svc|all>", "Filter logs by service name") +
+            string.Format("  {0,-25} {1}\n", "find <query>", "Search all logs for keyword") +
+            string.Format("  {0,-25} {1}\n", "find <svc> <query>", "Search specific service logs") +
+            string.Format("  {0,-25} {1}\n", "start <svc>", "Start stopped/not-started service") +
+            string.Format("  {0,-25} {1}\n", "stop <svc>", "Stop running service") +
+            string.Format("  {0,-25} {1}\n", "clear", "Clear log buffer") +
+            string.Format("  {0,-25} {1}\n\n", "quit", "Exit Kosh CLI") +
+            "───────────────────── SERVICE STATUS ICONS ───────────────────\n" +
+            "  ● Running      ✔ Ready          ✖ Failed\n" +
+            "  ▲ Starting     ■ Stopped        ○ Not Started\n\n" +
+            "───────────────────── KEYBOARD SHORTCUTS ─────────────────────\n" +
+            string.Format("  {0,-16} {1}\n", "H", "Open this Help dialog") +
+            string.Format("  {0,-16} {1}\n", "Shift + Drag", "Native terminal text selection") +
+            string.Format("  {0,-16} {1}\n", "Tab", "Cycle command suggestions") +
+            string.Format("  {0,-16} {1}", "C / Q", "Clear log buffer / Quit Kosh CLI");
+
+        var label = new Label(helpText)
+        {
+            X = 1,
+            Y = 0,
+            Width = Dim.Fill() - 2,
+            Height = Dim.Fill() - 2,
+            TextAlignment = TextAlignment.Left
+        };
+
+        var closeBtn = new Button("Close");
+        closeBtn.Clicked += () => Application.RequestStop();
+        dialog.AddButton(closeBtn);
+
+        dialog.Add(label);
+        Application.Run(dialog);
     }
 
     public void ClearLogs()

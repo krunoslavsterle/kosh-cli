@@ -8,7 +8,7 @@ public sealed class ServiceRuntime
     public ServiceDefinition Definition { get; }
     public ServiceStatus Status { get; set; }
     public IRunningProcess? Process { get; internal set; }
-    public TaskCompletionSource<int> Completion { get; } = new();
+    public TaskCompletionSource<int> Completion { get; private set; } = new();
 
     public ServiceRuntime(ServiceDefinition definition)
     {
@@ -19,5 +19,10 @@ public sealed class ServiceRuntime
     public void SetProcess(IRunningProcess process)
     {
         Process = process;
+    }
+
+    public void ResetCompletion()
+    {
+        Completion = new TaskCompletionSource<int>();
     }
 }

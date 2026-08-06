@@ -34,7 +34,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         {
             Terminal.Gui.Application.Init();
             var top = Terminal.Gui.Application.Top;
-            var dashboard = new KoshTuiDashboard(configDefinitionResult.Value.ProjectName);
+            var dashboard = new KoshTuiDashboard(configDefinitionResult.Value.ProjectName, supervisor);
             top.Add(dashboard);
 
             // Global Key Interception (Evaluated BEFORE focused controls swallow keys)

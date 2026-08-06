@@ -88,6 +88,21 @@ public sealed class Supervisor : ISupervisor
         return Result.Ok();
     }
 
+    public async Task<Result> StopServiceAsync(ServiceId serviceId, CancellationToken ct)
+    {
+        if (!_services.TryGetValue(serviceId, out var runtime))
+            return Result.Fail($"Service '{serviceId}' not found.");
+
+        if (runtime.Process != null && runtime.Status is ServiceStatus.Running or ServiceStatus.Ready or ServiceStatus.Starting)
+        {
+            runtime.Status = ServiceStatus.Stopped;
+            _serviceEvents.OnNext(runtime);
+            await runtime.Process.StopAsync(ct);
+        }
+
+        return Result.Ok();
+    }
+
     // Start a single Group and handles ExecutionMode.
     public async Task<Result> StartGroupAsync(GroupId groupId, CancellationToken ct)
     {
@@ -102,6 +117,12 @@ public sealed class Supervisor : ISupervisor
 
         foreach (var service in group.Services)
         {
+            if (service.Definition.ManualStart)
+            {
+                _serviceEvents.OnNext(_services[service.Definition.Id]);
+                continue;
+            }
+
             var result = await StartServiceAsync(service.Definition.Id, ct);
             if (result.IsFailed)
             {
@@ -146,9 +167,10 @@ public sealed class Supervisor : ISupervisor
         if (!_services.TryGetValue(serviceId, out var runtime))
             return Result.Fail($"Service '{serviceId}' not found.");
 
-        if (runtime.Status == ServiceStatus.Running)
+        if (runtime.Status is ServiceStatus.Running or ServiceStatus.Ready or ServiceStatus.Starting)
             return Result.Ok();
 
+        runtime.ResetCompletion();
         runtime.Status = ServiceStatus.Starting;
         _serviceEvents.OnNext(runtime);
 

@@ -15,6 +15,10 @@ services:
   - name: migrations
     type: dotnet-run
     path: ./src/KoshDemo.Migrations
+      
+  - name: migrations-secondary
+    type: dotnet-run
+    path: ./src/KoshDemo.Migrations
 
   - name: api
     type: dotnet-watch
@@ -27,6 +31,7 @@ services:
   - name: worker
     type: dotnet-watch
     path: ./src/KoshDemo.Worker
+    manualStart: true
     env:
       ASPNETCORE_ENVIRONMENT: Development
       DOTNET_USE_POLLING_FILE_WATCHER: "1"

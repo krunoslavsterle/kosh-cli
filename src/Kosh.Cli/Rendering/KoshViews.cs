@@ -46,6 +46,20 @@ internal static class ServiceColorManager
             _ => Terminal.Gui.Attribute.Make(Color.Gray, Color.Black)
         };
     }
+
+    public static string GetStatusIcon(ServiceStatus status)
+    {
+        return status switch
+        {
+            ServiceStatus.Running => "●",
+            ServiceStatus.Ready => "✔",
+            ServiceStatus.Failed => "✖",
+            ServiceStatus.Starting => "▲",
+            ServiceStatus.Stopped => "■",
+            ServiceStatus.NotStarted => "○",
+            _ => "⚪"
+        };
+    }
 }
 
 internal struct FlatLogLine
@@ -76,18 +90,19 @@ internal sealed class HeaderView : View
         lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
         if (snapshot.Count == 0) return 1;
 
-        int currentX = 11;
+        int currentX = 1;
         int currentY = 0;
 
-        foreach (var service in snapshot)
+        for (int i = 0; i < snapshot.Count; i++)
         {
+            var service = snapshot[i];
             if (_serviceStatuses.TryGetValue(service, out var status))
             {
-                var textLength = service.Length + status.ToString().Length + 5;
-                if (currentX + textLength > availableWidth && currentX > 11)
+                var textLength = service.Length + (i < snapshot.Count - 1 ? 5 : 2);
+                if (currentX + textLength > availableWidth && currentX > 1)
                 {
                     currentY++;
-                    currentX = 11;
+                    currentX = 1;
                 }
                 currentX += textLength;
             }
@@ -111,35 +126,42 @@ internal sealed class HeaderView : View
         lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
 
         var normalAttr = Terminal.Gui.Attribute.Make(Color.White, Color.Black);
+        var dividerAttr = Terminal.Gui.Attribute.Make(Color.DarkGray, Color.Black);
 
         Move(0, 0);
         Driver.SetAttribute(normalAttr);
-        Driver.AddStr(" Services: ");
 
-        int currentX = 11;
-        int currentY = 0;
-        int maxAvailableWidth = GetAvailableWidth();
+        var horizontalOffset = 1;
+        var currentX = horizontalOffset;
+        var currentY = 0;
+        var maxAvailableWidth = GetAvailableWidth();
 
-        foreach (var service in snapshot)
+        for (int i = 0; i < snapshot.Count; i++)
         {
+            var service = snapshot[i];
             if (_serviceStatuses.TryGetValue(service, out var status))
             {
-                var textLength = service.Length + status.ToString().Length + 5;
-                if (currentX + textLength > maxAvailableWidth && currentX > 11)
+                var icon = ServiceColorManager.GetStatusIcon(status);
+                var textLength = service.Length + (i < snapshot.Count - 1 ? 5 : 2);
+                if (currentX + textLength > maxAvailableWidth && currentX > horizontalOffset)
                 {
                     currentY++;
-                    currentX = 11;
+                    currentX = horizontalOffset;
                 }
 
                 Move(currentX, currentY);
                 Driver.SetAttribute(ServiceColorManager.GetColor(service));
                 Driver.AddStr(service);
                 Driver.SetAttribute(normalAttr);
-                Driver.AddStr(" [");
+                Driver.AddStr(" ");
                 Driver.SetAttribute(ServiceColorManager.GetStatusColor(status));
-                Driver.AddStr(status.ToString());
-                Driver.SetAttribute(normalAttr);
-                Driver.AddStr("]  ");
+                Driver.AddStr(icon);
+
+                if (i < snapshot.Count - 1)
+                {
+                    Driver.SetAttribute(dividerAttr);
+                    Driver.AddStr(" │ ");
+                }
 
                 currentX += textLength;
             }
@@ -152,6 +174,25 @@ internal sealed class LogView : View
     public List<FlatLogLine> Entries { get; set; } = new();
     
     private int _topRow = 0;
+    private bool _autoScroll = true;
+    
+    public void SetLines(List<FlatLogLine> lines, bool forceScrollToBottom = false)
+    {
+        Entries = lines;
+        var maxTop = Math.Max(0, Entries.Count - Bounds.Height);
+
+        if (forceScrollToBottom || _autoScroll)
+        {
+            _autoScroll = true;
+            _topRow = maxTop;
+        }
+        else
+        {
+            _topRow = Math.Min(_topRow, maxTop);
+        }
+
+        SetNeedsDisplay();
+    }
     
     public override bool ProcessKey(KeyEvent keyEvent)
     {
@@ -180,6 +221,7 @@ internal sealed class LogView : View
 
     private void ScrollUp(int lines = 1)
     {
+        _autoScroll = false;
         _topRow = Math.Max(0, _topRow - lines);
         SetNeedsDisplay();
     }
@@ -188,11 +230,16 @@ internal sealed class LogView : View
     {
         var maxTop = Math.Max(0, Entries.Count - Bounds.Height);
         _topRow = Math.Min(maxTop, _topRow + lines);
+        if (_topRow >= maxTop)
+        {
+            _autoScroll = true;
+        }
         SetNeedsDisplay();
     }
     
     public void ScrollToBottom()
     {
+        _autoScroll = true;
         _topRow = Math.Max(0, Entries.Count - Bounds.Height);
         SetNeedsDisplay();
     }

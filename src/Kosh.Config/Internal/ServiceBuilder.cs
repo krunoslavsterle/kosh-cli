@@ -36,7 +36,8 @@ internal class ServiceBuilder
             Environment: yamlService.Env,
             globalEnvironment,
             ConfigLogType: logTypeResult.Value,
-            InheritEnv: yamlService.InheritEnv
+            InheritEnv: yamlService.InheritEnv,
+            ManualStart: yamlService.ManualStart
         );
     }
 

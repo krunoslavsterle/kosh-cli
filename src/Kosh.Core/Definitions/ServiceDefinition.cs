@@ -12,4 +12,5 @@ public sealed record ServiceDefinition(
     IReadOnlyDictionary<string, string> Environment,
     IReadOnlyDictionary<string, string> GlobalEnvironment,
     ConfigLogType ConfigLogType,
-    bool InheritEnv);
+    bool InheritEnv,
+    bool ManualStart = false);
