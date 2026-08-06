@@ -34,7 +34,9 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         {
             using var app = Terminal.Gui.App.Application.Create();
             app.Init();
-            var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value.ProjectName, supervisor);
+            using var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value.ProjectName, supervisor);
+
+            var disposables = new List<IDisposable>();
 
             ConsoleCancelEventHandler cancelHandler = (_, e) =>
             {
@@ -43,20 +45,20 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             };
             Console.CancelKeyPress += cancelHandler;
 
-            supervisor.ServiceEvents.Subscribe(runtime =>
+            disposables.Add(supervisor.ServiceEvents.Subscribe(runtime =>
             {
                 dashboard.UpdateServiceStatus(runtime);
-            });
+            }));
 
-            supervisor.ServiceLogs.Subscribe(log =>
+            disposables.Add(supervisor.ServiceLogs.Subscribe(log =>
             {
                 dashboard.AppendLog(log.ServiceName, log.Line, log.Type == LogType.Error);
-            });
+            }));
 
-            supervisor.GroupLogs.Subscribe(log =>
+            disposables.Add(supervisor.GroupLogs.Subscribe(log =>
             {
                 dashboard.AppendLog($"{log.GroupName}-group", log.Line, log.Type == LogType.Error);
-            });
+            }));
 
             // Start services in background
             var startTask = supervisor.StartAllAsync(ct);
@@ -67,6 +69,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             }
             finally
             {
+                foreach (var d in disposables) d.Dispose();
                 Console.CancelKeyPress -= cancelHandler;
                 KoshConsole.Info("Stopping all services...");
                 await supervisor.StopAllAsync(CancellationToken.None);
@@ -77,32 +80,34 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         }
 
         // Fallback / Plain Text mode (--no-tui or non-interactive)
-        supervisor.GroupEvents.Subscribe(runtime =>
+        var disposablesFallback = new List<IDisposable>();
+
+        disposablesFallback.Add(supervisor.GroupEvents.Subscribe(runtime =>
         {
             if (!runtime.Definition.IsVirtualGroup)
                 KoshConsole.WriteServiceLog($"{runtime.Definition.Name}-group", runtime.Status.ToString());
-        });
+        }));
 
-        supervisor.ServiceEvents.Subscribe(runtime =>
+        disposablesFallback.Add(supervisor.ServiceEvents.Subscribe(runtime =>
         {
             KoshConsole.WriteServiceLog(runtime.Definition.Name, runtime.Status.ToString());
-        });
+        }));
 
-        supervisor.GroupLogs.Subscribe(log =>
+        disposablesFallback.Add(supervisor.GroupLogs.Subscribe(log =>
         {
             if (log.Type == LogType.Info)
                 KoshConsole.WriteServiceLog($"{log.GroupName}-group", log.Line);
             else
                 KoshConsole.WriteServiceErrorLog($"{log.GroupName}-group", log.Line);
-        });
+        }));
 
-        supervisor.ServiceLogs.Subscribe(log =>
+        disposablesFallback.Add(supervisor.ServiceLogs.Subscribe(log =>
         {
             if (log.Type == LogType.Info)
                 KoshConsole.WriteServiceLog(log.ServiceName, log.Line);
             else
                 KoshConsole.WriteServiceErrorLog(log.ServiceName, log.Line);
-        });
+        }));
 
         try
         {
@@ -134,6 +139,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         }
         finally
         {
+            foreach (var d in disposablesFallback) d.Dispose();
             KoshConsole.Info("Stopping all services...");
             await supervisor.StopAllAsync(CancellationToken.None);
             KoshConsole.Success("All services stopped.");

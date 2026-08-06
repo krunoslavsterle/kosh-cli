@@ -35,8 +35,7 @@ public sealed class KoshTuiDashboard : Window
     private string? _explicitSearchService = null;
 
     private bool _isCmdActive = false;
-    private volatile bool _hasPendingLogUpdate = false;
-    private volatile bool _hasPendingStatusUpdate = false;
+    private bool _updateScheduled = false;
 
     private readonly Label _ghostLabel;
     private bool _ignoreNextTextChange = false;
@@ -60,7 +59,13 @@ public sealed class KoshTuiDashboard : Window
         Width = Dim.Fill();
         Height = Dim.Fill();
 
-        KeyDown += (sender, key) => HandleRootKeyEvent(key);
+        KeyDown += (sender, key) => 
+        {
+            if (HandleRootKeyEvent(key))
+            {
+                key.Handled = true;
+            }
+        };
 
         ApplyNativeTerminalTheme();
 
@@ -86,7 +91,7 @@ public sealed class KoshTuiDashboard : Window
 
         _logFrame = new FrameView
         {
-            Title = "Logs [View: all] (Mouse wheel / Touchpad to scroll)",
+            Title = "Logs [View: all]",
             X = 0,
             Y = Pos.Bottom(_headerFrame),
             Width = Dim.Fill(),
@@ -131,14 +136,17 @@ public sealed class KoshTuiDashboard : Window
             {
                 ExecuteCommand(_cmdInput.Text ?? "");
                 CloseCmdInput();
+                key.Handled = true;
             }
             else if (key == Key.Esc)
             {
                 CloseCmdInput();
+                key.Handled = true;
             }
             else if (key == Key.Tab)
             {
                 HandleTabCycle();
+                key.Handled = true;
             }
         };
 
@@ -171,22 +179,21 @@ public sealed class KoshTuiDashboard : Window
         _statusBar.AddShortcutAt(2, new Shortcut { Key = Key.C, Text = "Clear Logs" });
 
         Add(_headerFrame, _logFrame, _cmdFrame, _statusBar);
+    }
 
-        _app.AddTimeout(TimeSpan.FromMilliseconds(50), () =>
+    private void ScheduleUpdate()
+    {
+        if (_updateScheduled) return;
+        _updateScheduled = true;
+        
+        Task.Delay(50).ContinueWith(_ =>
         {
-            if (_hasPendingStatusUpdate)
+            _app.Invoke(() =>
             {
-                _hasPendingStatusUpdate = false;
+                _updateScheduled = false;
                 RefreshHeader();
-            }
-
-            if (_hasPendingLogUpdate && !_isCmdActive)
-            {
-                _hasPendingLogUpdate = false;
-                RenderLogs(scrollToBottom: false);
-            }
-
-            return true;
+                if (!_isCmdActive) RenderLogs(scrollToBottom: false);
+            });
         });
     }
 
@@ -239,7 +246,7 @@ public sealed class KoshTuiDashboard : Window
             }
         }
 
-        _hasPendingStatusUpdate = true;
+        ScheduleUpdate();
     }
 
     public void AppendLog(string serviceName, string message, bool isError = false)
@@ -253,11 +260,10 @@ public sealed class KoshTuiDashboard : Window
             {
                 _orderedServices.Add(serviceName);
                 _orderedServices.Sort(StringComparer.OrdinalIgnoreCase);
-                _hasPendingStatusUpdate = true;
             }
         }
 
-        _hasPendingLogUpdate = true;
+        ScheduleUpdate();
     }
 
     public void SetLogFilter(string serviceName)
@@ -277,12 +283,13 @@ public sealed class KoshTuiDashboard : Window
         if (_activeSearchQuery != null)
         {
             entries = _logBuffer.SearchLogs(targetService, _activeSearchQuery);
-            _logFrame.Title = $"Logs [Search: \"{_activeSearchQuery}\" in {targetService}] ({entries.Count} matches) - Press ESC/ENTER to exit search";
+            var svcPart = _explicitSearchService != null ? $"{_explicitSearchService} " : "";
+            _logFrame.Title = $"Logs [View: find {svcPart}{_activeSearchQuery}] ({entries.Count} matches)";
         }
         else
         {
             entries = _logBuffer.GetLogs(_activeFilter);
-            _logFrame.Title = $"Logs [View: {_activeFilter}] (Touchpad/Mouse wheel to scroll)";
+            _logFrame.Title = $"Logs [View: {_activeFilter}] ({entries.Count} logs)";
         }
 
         _logView.SetRawEntries(entries, scrollToBottom);
@@ -346,21 +353,32 @@ public sealed class KoshTuiDashboard : Window
             {
                 _activeSearchQuery = null;
                 _explicitSearchService = null;
-                RenderLogs(scrollToBottom: true);
                 RefreshHeader();
+                RenderLogs(scrollToBottom: true);
                 return;
             }
 
-            if (parts.Length >= 3)
+            var fullQuery = cmd.Substring(action.Length).Trim();
+            var firstWord = parts[1];
+
+            bool isFirstWordAService;
+            lock (_orderedServices)
             {
-                _explicitSearchService = parts[1];
-                _activeSearchQuery = string.Join(' ', parts.Skip(2));
+                isFirstWordAService = firstWord.Equals("all", StringComparison.OrdinalIgnoreCase) || 
+                                      _orderedServices.Contains(firstWord, StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (isFirstWordAService && parts.Length >= 3)
+            {
+                _explicitSearchService = firstWord.Equals("all", StringComparison.OrdinalIgnoreCase) ? null : firstWord;
+                _activeSearchQuery = fullQuery.Substring(firstWord.Length).Trim();
             }
             else
             {
                 _explicitSearchService = null;
-                _activeSearchQuery = parts[1];
+                _activeSearchQuery = fullQuery;
             }
+            
             RefreshHeader();
             RenderLogs(scrollToBottom: true);
         }
@@ -555,18 +573,6 @@ public sealed class KoshTuiDashboard : Window
         if (ch == ':')
         {
             OpenCmdInput("");
-            return true;
-        }
-
-        if (ch == 'v' || ch == 'V')
-        {
-            OpenCmdInput("v ");
-            return true;
-        }
-
-        if (ch == 'f' || ch == 'F')
-        {
-            OpenCmdInput("f ");
             return true;
         }
 
@@ -777,7 +783,7 @@ public sealed class KoshTuiDashboard : Window
                 "  ● Running      ✔ Ready          ✖ Failed\n" +
                 "  ▲ Starting     ■ Stopped        ○ Not Started\n\n" +
                 "───────────────────── KEYBOARD SHORTCUTS ─────────────────────\n" +
-                string.Format("  {0,-24} {1}\n", ":  or  V / F", "Open command input prompt") +
+                string.Format("  {0,-24} {1}\n", ":", "Open command input prompt") +
                 string.Format("  {0,-24} {1}\n", "Up / Down / PgUp / PgDn", "Scroll logs up and down") +
                 string.Format("  {0,-24} {1}\n", "Mouse Wheel / Touchpad", "Scroll logs smoothly") +
                 string.Format("  {0,-24} {1}\n", "Tab", "Cycle command suggestions") +

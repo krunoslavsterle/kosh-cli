@@ -94,9 +94,9 @@ internal static class ServiceColorManager
 
 internal struct FlatLogLine
 {
-    public string ServiceName;
-    public string Message;
-    public bool IsError;
+    public LogEntry Entry;
+    public int StartIndex;
+    public int Length;
     public bool IsContinuation;
 }
 
@@ -261,47 +261,58 @@ internal sealed class LogView : View
 
         foreach (var entry in RawEntries)
         {
-            var lines = entry.Message.Split('\n');
-
-            for (int lineIdx = 0; lineIdx < lines.Length; lineIdx++)
+            var msg = entry.Message;
+            if (string.IsNullOrEmpty(msg))
             {
-                var rawLine = lines[lineIdx];
-                bool isFirstLineOfMessage = (lineIdx == 0);
+                newFlatLines.Add(new FlatLogLine { Entry = entry, StartIndex = 0, Length = 0, IsContinuation = false });
+                continue;
+            }
 
-                if (string.IsNullOrEmpty(rawLine))
+            int lineStart = 0;
+            bool isFirstLineOfMessage = true;
+
+            while (lineStart <= msg.Length)
+            {
+                int lineEnd = msg.IndexOf('\n', lineStart);
+                if (lineEnd == -1) lineEnd = msg.Length;
+
+                int lineLen = lineEnd - lineStart;
+                
+                if (lineLen == 0 && lineStart < msg.Length)
                 {
-                    newFlatLines.Add(new FlatLogLine
-                    {
-                        ServiceName = entry.ServiceName,
-                        Message = "",
-                        IsError = entry.IsError,
-                        IsContinuation = !isFirstLineOfMessage
-                    });
+                    newFlatLines.Add(new FlatLogLine { Entry = entry, StartIndex = lineStart, Length = 0, IsContinuation = !isFirstLineOfMessage });
+                    lineStart = lineEnd + 1;
+                    isFirstLineOfMessage = false;
                     continue;
                 }
-
+                
                 int offset = 0;
                 bool isFirstChunk = isFirstLineOfMessage;
 
-                while (offset < rawLine.Length)
+                while (offset < lineLen || (offset == 0 && lineLen == 0))
                 {
                     int prefixLen = entry.ServiceName.Length + 3 + (isFirstChunk && entry.IsError ? 6 : 2);
                     int currentMaxLen = Math.Max(10, vw - prefixLen);
 
-                    int lengthToTake = Math.Min(currentMaxLen, rawLine.Length - offset);
-                    string chunk = rawLine.Substring(offset, lengthToTake);
+                    int lengthToTake = Math.Min(currentMaxLen, lineLen - offset);
 
                     newFlatLines.Add(new FlatLogLine
                     {
-                        ServiceName = entry.ServiceName,
-                        Message = chunk,
-                        IsError = entry.IsError,
+                        Entry = entry,
+                        StartIndex = lineStart + offset,
+                        Length = lengthToTake,
                         IsContinuation = !isFirstChunk
                     });
 
                     offset += lengthToTake;
                     isFirstChunk = false;
+                    
+                    if (lengthToTake == 0) break;
                 }
+
+                if (lineEnd == msg.Length) break;
+                lineStart = lineEnd + 1;
+                isFirstLineOfMessage = false;
             }
         }
 
@@ -370,13 +381,14 @@ internal sealed class LogView : View
             }
 
             var entry = _flatLines[idx];
+            var logEntry = entry.Entry;
 
-            SetAttribute(ServiceColorManager.GetColor(entry.ServiceName));
-            AddStr(0, i, $"[{entry.ServiceName}] ");
+            SetAttribute(ServiceColorManager.GetColor(logEntry.ServiceName));
+            AddStr(0, i, $"[{logEntry.ServiceName}] ");
 
-            var col = entry.ServiceName.Length + 3;
+            var col = logEntry.ServiceName.Length + 3;
 
-            if (entry.IsError && !entry.IsContinuation)
+            if (logEntry.IsError && !entry.IsContinuation)
             {
                 SetAttribute(errAttr);
                 AddStr(col, i, "[ERR] ");
@@ -389,13 +401,15 @@ internal sealed class LogView : View
                 col += 2;
             }
 
-            SetAttribute(entry.IsError ? errAttr : (entry.IsContinuation ? contAttr : normalAttr));
-            var msg = entry.Message.Replace('\t', ' ');
-
-            var maxMsgLen = Math.Max(0, bounds.Width - col);
-            if (msg.Length > maxMsgLen) msg = msg.Substring(0, maxMsgLen);
-
-            AddStr(col, i, msg);
+            SetAttribute(logEntry.IsError ? errAttr : (entry.IsContinuation ? contAttr : normalAttr));
+            
+            if (entry.Length > 0)
+            {
+                var msgChunk = logEntry.Message.Substring(entry.StartIndex, entry.Length).Replace('\t', ' ');
+                var maxMsgLen = Math.Max(0, bounds.Width - col);
+                if (msgChunk.Length > maxMsgLen) msgChunk = msgChunk.Substring(0, maxMsgLen);
+                AddStr(col, i, msgChunk);
+            }
         }
 
         return true;

@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
 using Kosh.Core.Events;
 
 namespace Kosh.Cli.Rendering;
@@ -100,35 +99,13 @@ public sealed class BoundedLogBuffer
 
     public List<LogEntry> SearchLogs(string? targetService, string query)
     {
-        lock (_lock)
-        {
-            var baseLogs = GetLogs(targetService);
-            if (string.IsNullOrWhiteSpace(query))
-                return baseLogs;
+        var baseLogs = GetLogs(targetService);
+        if (string.IsNullOrWhiteSpace(query))
+            return baseLogs;
 
-            query = query.Trim();
+        query = query.Trim();
 
-            // Detect Regex mode: /pattern/
-            bool isRegex = query.StartsWith('/') && query.EndsWith('/') && query.Length > 2;
-
-            if (isRegex)
-            {
-                var pattern = query[1..^1];
-                try
-                {
-                    var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-                    return baseLogs.Where(e => regex.IsMatch(e.Message) || regex.IsMatch(e.ServiceName)).ToList();
-                }
-                catch
-                {
-                    return baseLogs.Where(e => e.Message.Contains(pattern, StringComparison.OrdinalIgnoreCase) ||
-                                               e.ServiceName.Contains(pattern, StringComparison.OrdinalIgnoreCase)).ToList();
-                }
-            }
-
-            return baseLogs.Where(e => e.Message.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                                       e.ServiceName.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
-        }
+        return baseLogs.Where(e => e.Message.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     public void Clear()
