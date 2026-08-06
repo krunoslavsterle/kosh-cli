@@ -1,14 +1,23 @@
 using System.Collections.Concurrent;
+using System.Drawing;
 using System.Text;
 using Kosh.Core.Runtime;
 using Kosh.Core.Supervisor;
 using Kosh.Core.ValueObjects;
-using Terminal.Gui;
+using Terminal.Gui.App;
+using Terminal.Gui.Drawing;
+using Terminal.Gui.Input;
+using Terminal.Gui.ViewBase;
+using Terminal.Gui.Views;
+
+using Attribute = Terminal.Gui.Drawing.Attribute;
+using Color = Terminal.Gui.Drawing.Color;
 
 namespace Kosh.Cli.Rendering;
 
 public sealed class KoshTuiDashboard : Window
 {
+    private readonly IApplication _app;
     private readonly FrameView _headerFrame;
     private readonly HeaderView _headerView;
     private readonly FrameView _logFrame;
@@ -34,21 +43,24 @@ public sealed class KoshTuiDashboard : Window
     private List<string> _cycleSuggestions = new();
     private int _cycleIndex = 0;
 
-    private static readonly Color TerminalDefaultBg = Color.Black;
-    private int _lastConsoleWidth = Console.WindowWidth;
-    private int _lastConsoleHeight = Console.WindowHeight;
+    private bool _isShowingDialog = false;
+
+    private static readonly Color TerminalDefaultBg = Color.None;
 
     private readonly ConcurrentDictionary<string, ServiceId> _serviceNameToId = new(StringComparer.OrdinalIgnoreCase);
     private readonly ISupervisor? _supervisor;
 
-    public KoshTuiDashboard(string projectName, ISupervisor? supervisor = null)
+    public KoshTuiDashboard(IApplication app, string projectName, ISupervisor? supervisor = null)
     {
+        _app = app;
         _supervisor = supervisor;
         Title = $" 🚀 kosh │ {projectName} ";
         X = 0;
         Y = 0;
         Width = Dim.Fill();
         Height = Dim.Fill();
+
+        KeyDown += (sender, key) => HandleRootKeyEvent(key);
 
         ApplyNativeTerminalTheme();
 
@@ -59,28 +71,28 @@ public sealed class KoshTuiDashboard : Window
             Width = Dim.Fill(),
             Height = Dim.Fill()
         };
+        _headerView.HeightNeededChanged += () => RebuildLayout();
 
-        // 1. Header Frame
-        _headerFrame = new FrameView("Status Overview")
+        _headerFrame = new FrameView
         {
+            Title = "Status Overview",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
-            Height = 3,
-            ColorScheme = GetHeaderColorScheme()
+            Height = 3
         };
-
+        _headerFrame.SetScheme(GetHeaderColorScheme());
         _headerFrame.Add(_headerView);
 
-        // 2. Log Frame (Middle)
-        _logFrame = new FrameView("Logs [View: all] (Mouse wheel / Touchpad to scroll)")
+        _logFrame = new FrameView
         {
+            Title = "Logs [View: all] (Mouse wheel / Touchpad to scroll)",
             X = 0,
             Y = Pos.Bottom(_headerFrame),
             Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            ColorScheme = GetLogColorScheme()
+            Height = Dim.Fill(1)
         };
+        _logFrame.SetScheme(GetLogColorScheme());
 
         _logView = new LogView
         {
@@ -93,109 +105,85 @@ public sealed class KoshTuiDashboard : Window
 
         _logFrame.Add(_logView);
 
-        // 3. Command Bar (Floating above status bar, hidden by default)
-        _cmdFrame = new FrameView("Command Line (v <service>, f <query>, f <service> <query>, Esc to cancel)")
+        _cmdFrame = new FrameView
         {
+            Title = "Command Line (v <service>, f <query>, f <service> <query>, Esc to cancel)",
             X = 0,
             Y = Pos.AnchorEnd(3),
             Width = Dim.Fill(),
             Height = 3,
-            Visible = false,
-            ColorScheme = GetHeaderColorScheme()
+            Visible = false
         };
+        _cmdFrame.SetScheme(GetHeaderColorScheme());
 
-        _cmdInput = new TextField("")
+        _cmdInput = new TextField
         {
+            Text = "",
             X = 0,
             Y = 0,
-            Width = Dim.Fill(),
-            ColorScheme = GetLogColorScheme()
+            Width = Dim.Fill()
         };
+        _cmdInput.SetScheme(GetLogColorScheme());
 
-        _cmdInput.KeyPress += (e) =>
+        _cmdInput.KeyDown += (sender, key) =>
         {
-            if (e.KeyEvent.Key == Key.Enter)
+            if (key == Key.Enter)
             {
-                ExecuteCommand(_cmdInput.Text.ToString() ?? "");
+                ExecuteCommand(_cmdInput.Text ?? "");
                 CloseCmdInput();
-                e.Handled = true;
             }
-            else if (e.KeyEvent.Key == Key.Esc)
+            else if (key == Key.Esc)
             {
                 CloseCmdInput();
-                e.Handled = true;
             }
-            else if (e.KeyEvent.Key == Key.Tab)
+            else if (key == Key.Tab)
             {
                 HandleTabCycle();
-                e.Handled = true;
             }
         };
 
-        _ghostLabel = new Label("")
+        _ghostLabel = new Label
         {
+            Text = "",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
-            ColorScheme = new ColorScheme 
-            { 
-                Normal = Terminal.Gui.Attribute.Make(Color.DarkGray, TerminalDefaultBg) 
-            },
             CanFocus = false
         };
+        _ghostLabel.SetScheme(new Scheme { Normal = new Attribute(Color.DarkGray, TerminalDefaultBg) });
 
-        _cmdInput.TextChanged += (_) =>
+        _cmdInput.TextChanged += (sender, args) =>
         {
             if (_ignoreNextTextChange)
             {
                 _ignoreNextTextChange = false;
                 return;
             }
-            UpdateSuggestions(_cmdInput.Text.ToString() ?? "");
+            UpdateSuggestions(_cmdInput.Text ?? "");
         };
 
         _cmdFrame.Add(_cmdInput, _ghostLabel);
 
-        // 4. Status Bar
-        _statusBar = new StatusBar(new[]
-        {
-            new StatusItem(Key.Q, "~Q~ Quit", ConfirmAndQuit),
-            new StatusItem(Key.Unknown, "~:~ Command (v/f)", () => OpenCmdInput()),
-            new StatusItem(Key.H, "~H~ Help", ShowHelpDialog),
-            new StatusItem(Key.C, "~C~ Clear Logs", ConfirmAndClearLogs)
-        })
-        {
-            ColorScheme = GetStatusBarColorScheme()
-        };
+        _statusBar = new StatusBar();
+        _statusBar.SetScheme(GetStatusBarColorScheme());
+        _statusBar.AddShortcutAt(0, new Shortcut { Key = Key.Q, Text = "Quit" });
+        _statusBar.AddShortcutAt(1, new Shortcut { Key = Key.H, Text = "Help" });
+        _statusBar.AddShortcutAt(2, new Shortcut { Key = Key.C, Text = "Clear Logs" });
 
         Add(_headerFrame, _logFrame, _cmdFrame, _statusBar);
 
-        // 5. Periodic UI Render Loop (20 FPS / 50ms)
-        Application.MainLoop?.AddTimeout(TimeSpan.FromMilliseconds(50), (_) =>
+        _app.AddTimeout(TimeSpan.FromMilliseconds(50), () =>
         {
-            int currentW = Console.WindowWidth;
-            int currentH = Console.WindowHeight;
-
-            if (currentW != _lastConsoleWidth || currentH != _lastConsoleHeight)
+            if (_hasPendingStatusUpdate)
             {
-                _lastConsoleWidth = currentW;
-                _lastConsoleHeight = currentH;
-
-                RebuildLayout();
+                _hasPendingStatusUpdate = false;
+                RefreshHeader();
             }
-            else
-            {
-                if (_hasPendingStatusUpdate)
-                {
-                    _hasPendingStatusUpdate = false;
-                    RefreshHeader();
-                }
 
-                if (_hasPendingLogUpdate && !_isCmdActive)
-                {
-                    _hasPendingLogUpdate = false;
-                    RenderLogs(scrollToBottom: false);
-                }
+            if (_hasPendingLogUpdate && !_isCmdActive)
+            {
+                _hasPendingLogUpdate = false;
+                RenderLogs(scrollToBottom: false);
             }
 
             return true;
@@ -204,39 +192,37 @@ public sealed class KoshTuiDashboard : Window
 
     private void ApplyNativeTerminalTheme()
     {
-        ColorScheme = new ColorScheme
+        SetScheme(new Scheme
         {
-            Normal = Terminal.Gui.Attribute.Make(Color.White, TerminalDefaultBg),
-            Focus = Terminal.Gui.Attribute.Make(Color.BrightCyan, TerminalDefaultBg),
-            HotNormal = Terminal.Gui.Attribute.Make(Color.BrightMagenta, TerminalDefaultBg),
-            HotFocus = Terminal.Gui.Attribute.Make(Color.BrightMagenta, TerminalDefaultBg)
-        };
-
-        Colors.Base = ColorScheme;
+            Normal = new Attribute(Color.White, TerminalDefaultBg),
+            Focus = new Attribute(Color.BrightCyan, TerminalDefaultBg),
+            HotNormal = new Attribute(Color.BrightMagenta, TerminalDefaultBg),
+            HotFocus = new Attribute(Color.BrightMagenta, TerminalDefaultBg)
+        });
     }
 
-    private static ColorScheme GetHeaderColorScheme() => new()
+    private static Scheme GetHeaderColorScheme() => new()
     {
-        Normal = Terminal.Gui.Attribute.Make(Color.BrightCyan, TerminalDefaultBg),
-        Focus = Terminal.Gui.Attribute.Make(Color.BrightCyan, TerminalDefaultBg),
-        HotNormal = Terminal.Gui.Attribute.Make(Color.BrightYellow, TerminalDefaultBg),
-        HotFocus = Terminal.Gui.Attribute.Make(Color.BrightYellow, TerminalDefaultBg)
+        Normal = new Attribute(Color.BrightCyan, TerminalDefaultBg),
+        Focus = new Attribute(Color.BrightCyan, TerminalDefaultBg),
+        HotNormal = new Attribute(Color.BrightYellow, TerminalDefaultBg),
+        HotFocus = new Attribute(Color.BrightYellow, TerminalDefaultBg)
     };
 
-    private static ColorScheme GetLogColorScheme() => new()
+    private static Scheme GetLogColorScheme() => new()
     {
-        Normal = Terminal.Gui.Attribute.Make(Color.Gray, TerminalDefaultBg),
-        Focus = Terminal.Gui.Attribute.Make(Color.White, TerminalDefaultBg),
-        HotNormal = Terminal.Gui.Attribute.Make(Color.BrightCyan, TerminalDefaultBg),
-        HotFocus = Terminal.Gui.Attribute.Make(Color.BrightCyan, TerminalDefaultBg)
+        Normal = new Attribute(Color.Gray, TerminalDefaultBg),
+        Focus = new Attribute(Color.White, TerminalDefaultBg),
+        HotNormal = new Attribute(Color.BrightCyan, TerminalDefaultBg),
+        HotFocus = new Attribute(Color.BrightCyan, TerminalDefaultBg)
     };
 
-    private static ColorScheme GetStatusBarColorScheme() => new()
+    private static Scheme GetStatusBarColorScheme() => new()
     {
-        Normal = Terminal.Gui.Attribute.Make(Color.BrightCyan, TerminalDefaultBg),
-        Focus = Terminal.Gui.Attribute.Make(Color.White, TerminalDefaultBg),
-        HotNormal = Terminal.Gui.Attribute.Make(Color.Gray, TerminalDefaultBg),
-        HotFocus = Terminal.Gui.Attribute.Make(Color.White, TerminalDefaultBg)
+        Normal = new Attribute(Color.BrightCyan, TerminalDefaultBg),
+        Focus = new Attribute(Color.White, TerminalDefaultBg),
+        HotNormal = new Attribute(Color.Gray, TerminalDefaultBg),
+        HotFocus = new Attribute(Color.White, TerminalDefaultBg)
     };
 
     public void UpdateServiceStatus(ServiceRuntime runtime)
@@ -299,30 +285,7 @@ public sealed class KoshTuiDashboard : Window
             _logFrame.Title = $"Logs [View: {_activeFilter}] (Touchpad/Mouse wheel to scroll)";
         }
 
-        var flatLines = new List<FlatLogLine>();
-        foreach (var entry in entries)
-        {
-            var lines = entry.Message.Split('\n');
-            flatLines.Add(new FlatLogLine
-            {
-                ServiceName = entry.ServiceName,
-                Message = lines[0],
-                IsError = entry.IsError,
-                IsContinuation = false
-            });
-            for (int i = 1; i < lines.Length; i++)
-            {
-                flatLines.Add(new FlatLogLine
-                {
-                    ServiceName = entry.ServiceName,
-                    Message = lines[i],
-                    IsError = entry.IsError,
-                    IsContinuation = true
-                });
-            }
-        }
-
-        _logView.SetLines(flatLines, scrollToBottom);
+        _logView.SetRawEntries(entries, scrollToBottom);
     }
 
     private void RefreshHeader()
@@ -337,17 +300,7 @@ public sealed class KoshTuiDashboard : Window
         _logFrame.Y = Pos.Bottom(_headerFrame);
         _logFrame.Height = Dim.Fill(1);
 
-        RemoveAll();
-        Add(_headerFrame, _logFrame, _cmdFrame, _statusBar);
-
-        if (Application.Top != null)
-        {
-            Application.Top.LayoutSubviews();
-        }
-        LayoutSubviews();
-        _headerView.SetNeedsDisplay();
-        _logView.SetNeedsDisplay();
-        SetNeedsDisplay();
+        SetNeedsDraw();
     }
 
     private void OpenCmdInput(string initialPrefix = "")
@@ -355,7 +308,7 @@ public sealed class KoshTuiDashboard : Window
         _isCmdActive = true;
         _cmdFrame.Visible = true;
         _cmdInput.Text = initialPrefix;
-        _cmdInput.CursorPosition = initialPrefix.Length;
+        _cmdInput.InsertionPoint = initialPrefix.Length;
         _cmdInput.SetFocus();
     }
 
@@ -398,26 +351,18 @@ public sealed class KoshTuiDashboard : Window
                 return;
             }
 
-            var secondToken = parts[1];
-            bool isSecondTokenService;
-            lock (_orderedServices)
+            if (parts.Length >= 3)
             {
-                isSecondTokenService = _orderedServices.Contains(secondToken, StringComparer.OrdinalIgnoreCase);
-            }
-
-            if (isSecondTokenService && parts.Length > 2)
-            {
-                _explicitSearchService = secondToken;
+                _explicitSearchService = parts[1];
                 _activeSearchQuery = string.Join(' ', parts.Skip(2));
             }
             else
             {
                 _explicitSearchService = null;
-                _activeSearchQuery = string.Join(' ', parts.Skip(1));
+                _activeSearchQuery = parts[1];
             }
-
-            RenderLogs(scrollToBottom: true);
             RefreshHeader();
+            RenderLogs(scrollToBottom: true);
         }
         else if (action is "start" or "s")
         {
@@ -447,34 +392,19 @@ public sealed class KoshTuiDashboard : Window
     {
         if (_cycleSuggestions.Count > 0)
         {
-            var currentInput = _cmdInput.Text.ToString() ?? "";
-            
-            // If we are currently showing the active cycle item, move to the next one
-            if (currentInput == _cycleSuggestions[_cycleIndex])
-            {
-                _cycleIndex = (_cycleIndex + 1) % _cycleSuggestions.Count;
-            }
+            _cycleIndex = (_cycleIndex + 1) % _cycleSuggestions.Count;
+            var selected = _cycleSuggestions[_cycleIndex];
 
-            var chosen = _cycleSuggestions[_cycleIndex];
             _ignoreNextTextChange = true;
-            _cmdInput.Text = chosen;
-            _cmdInput.CursorPosition = chosen.Length;
+            _cmdInput.Text = selected;
+            _cmdInput.InsertionPoint = selected.Length;
             _ghostLabel.Text = "";
         }
     }
 
     private void UpdateSuggestions(string rawInput)
     {
-        _cycleSuggestions.Clear();
-        _cycleIndex = 0;
-
-        var input = rawInput.TrimStart(':').TrimStart();
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            _ghostLabel.Text = "";
-            return;
-        }
-
+        var input = rawInput.TrimStart(':');
         var lower = input.ToLowerInvariant();
         var options = new List<string>();
 
@@ -482,68 +412,49 @@ public sealed class KoshTuiDashboard : Window
         foreach (var c in cmds)
             if (c.StartsWith(lower)) options.Add(c);
 
-        if (lower.StartsWith("s ") || lower.StartsWith("start "))
+        if (input.StartsWith("view ", StringComparison.OrdinalIgnoreCase) ||
+            input.StartsWith("v ", StringComparison.OrdinalIgnoreCase) ||
+            input.StartsWith("start ", StringComparison.OrdinalIgnoreCase) ||
+            input.StartsWith("s ", StringComparison.OrdinalIgnoreCase) ||
+            input.StartsWith("stop ", StringComparison.OrdinalIgnoreCase) ||
+            input.StartsWith("st ", StringComparison.OrdinalIgnoreCase))
         {
-            var prefix = lower.StartsWith("s ") ? "s " : "start ";
-            var servicePart = lower.Substring(prefix.Length);
+            var parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var prefix = parts[0] + " ";
+            var servicePart = parts.Length > 1 ? parts[1].ToLowerInvariant() : "";
 
-            lock (_orderedServices)
+            if (input.StartsWith("view ", StringComparison.OrdinalIgnoreCase) || input.StartsWith("v ", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var s in _orderedServices)
+                if ("all".StartsWith(servicePart)) options.Add(prefix + "all");
+            }
+
+            if (input.StartsWith("start ", StringComparison.OrdinalIgnoreCase) || input.StartsWith("s ", StringComparison.OrdinalIgnoreCase))
+            {
+                List<string> snapshot;
+                lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
+                foreach (var s in snapshot)
                 {
-                    if (_serviceStatuses.TryGetValue(s, out var status))
+                    if (_serviceStatuses.TryGetValue(s, out var status) && status is ServiceStatus.Stopped or ServiceStatus.Failed or ServiceStatus.NotStarted)
                     {
-                        if (status is ServiceStatus.NotStarted or ServiceStatus.Stopped or ServiceStatus.Failed)
-                        {
-                            if (s.ToLowerInvariant().StartsWith(servicePart))
-                                options.Add(prefix + s);
-                        }
+                        if (s.ToLowerInvariant().StartsWith(servicePart))
+                            options.Add(prefix + s + " ");
                     }
                 }
             }
-        }
-        else if (lower.StartsWith("st ") || lower.StartsWith("stop "))
-        {
-            var prefix = lower.StartsWith("st ") ? "st " : "stop ";
-            var servicePart = lower.Substring(prefix.Length);
-
-            lock (_orderedServices)
+            else if (input.StartsWith("stop ", StringComparison.OrdinalIgnoreCase) || input.StartsWith("st ", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var s in _orderedServices)
+                List<string> snapshot;
+                lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
+                foreach (var s in snapshot)
                 {
-                    if (_serviceStatuses.TryGetValue(s, out var status))
+                    if (_serviceStatuses.TryGetValue(s, out var status) && status is ServiceStatus.Running or ServiceStatus.Ready or ServiceStatus.Starting)
                     {
-                        if (status is ServiceStatus.Running or ServiceStatus.Ready or ServiceStatus.Starting)
-                        {
-                            if (s.ToLowerInvariant().StartsWith(servicePart))
-                                options.Add(prefix + s);
-                        }
+                        if (s.ToLowerInvariant().StartsWith(servicePart))
+                            options.Add(prefix + s + " ");
                     }
                 }
             }
-        }
-
-        if (lower.StartsWith("v ") || lower.StartsWith("view "))
-        {
-            var prefix = lower.StartsWith("v ") ? "v " : "view ";
-            var servicePart = lower.Substring(prefix.Length);
-
-            List<string> snapshot;
-            lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
-
-            if ("all".StartsWith(servicePart) && servicePart.Length > 0)
-                options.Add(prefix + "all");
-
-            foreach (var s in snapshot)
-                if (s.ToLowerInvariant().StartsWith(servicePart))
-                    options.Add(prefix + s);
-        }
-        else if (lower.StartsWith("f ") || lower.StartsWith("find "))
-        {
-            var prefix = lower.StartsWith("f ") ? "f " : "find ";
-            var servicePart = lower.Substring(prefix.Length);
-
-            if (!servicePart.Contains(" "))
+            else
             {
                 List<string> snapshot;
                 lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
@@ -561,7 +472,6 @@ public sealed class KoshTuiDashboard : Window
             var suggestion = _cycleSuggestions[0];
             var typedPrefixLength = rawInput.Length;
             
-            // If suggestion is longer than what's typed, show the rest
             if (suggestion.Length > input.Length)
             {
                 var remaining = suggestion.Substring(input.Length);
@@ -579,39 +489,36 @@ public sealed class KoshTuiDashboard : Window
         }
     }
 
-    public bool HandleRootKeyEvent(KeyEvent keyEvent)
+    public bool HandleRootKeyEvent(Key key)
     {
-        uint k = (uint)keyEvent.Key;
+        uint k = (uint)key;
         char ch = (char)(k & 0xFFFF);
 
         if (_isCmdActive)
         {
-            if (keyEvent.Key == Key.Esc)
+            if (key == Key.Esc)
             {
                 CloseCmdInput();
                 return true;
             }
-            if (keyEvent.Key == Key.Enter)
+            if (key == Key.Enter)
             {
-                ExecuteCommand(_cmdInput.Text.ToString() ?? "");
+                ExecuteCommand(_cmdInput.Text ?? "");
                 CloseCmdInput();
                 return true;
             }
-            if (keyEvent.Key == Key.Tab)
+            if (key == Key.Tab)
             {
                 HandleTabCycle();
                 return true;
             }
 
-            // Direct route to _cmdInput - guarantees 0 dropped characters!
-            _cmdInput.ProcessKey(keyEvent);
-            return true;
+            return false;
         }
 
-        // If in search mode, Esc or Enter exits search mode and restores live logs!
         if (_activeSearchQuery != null)
         {
-            if (keyEvent.Key == Key.Esc || keyEvent.Key == Key.Enter)
+            if (key == Key.Esc || key == Key.Enter)
             {
                 _activeSearchQuery = null;
                 _explicitSearchService = null;
@@ -621,18 +528,30 @@ public sealed class KoshTuiDashboard : Window
             }
         }
 
-        // Handle Ctrl shortcuts first (e.g. Ctrl+C, Ctrl+Q)
-        if (keyEvent.IsCtrl)
+        if (key == Key.CursorUp)
         {
-            if (keyEvent.Key == (Key.Q | Key.CtrlMask) || keyEvent.Key == (Key.C | Key.CtrlMask))
-            {
-                ConfirmAndQuit();
-                return true;
-            }
-            return false;
+            _logView.ScrollUp(1);
+            return true;
         }
 
-        // Command mode hotkeys: : or v or f
+        if (key == Key.CursorDown)
+        {
+            _logView.ScrollDown(1);
+            return true;
+        }
+
+        if (key == Key.PageUp)
+        {
+            _logView.ScrollUp(Math.Max(1, _logView.Viewport.Height));
+            return true;
+        }
+
+        if (key == Key.PageDown)
+        {
+            _logView.ScrollDown(Math.Max(1, _logView.Viewport.Height));
+            return true;
+        }
+
         if (ch == ':')
         {
             OpenCmdInput("");
@@ -651,21 +570,18 @@ public sealed class KoshTuiDashboard : Window
             return true;
         }
 
-        // H for help
         if (ch == 'h' || ch == 'H')
         {
             ShowHelpDialog();
             return true;
         }
 
-        // Q for quit
         if (ch == 'q' || ch == 'Q')
         {
             ConfirmAndQuit();
             return true;
         }
 
-        // C for clear
         if (ch == 'c' || ch == 'C')
         {
             ConfirmAndClearLogs();
@@ -675,29 +591,145 @@ public sealed class KoshTuiDashboard : Window
         return false;
     }
 
-    public override bool ProcessHotKey(KeyEvent keyEvent)
-    {
-        if (HandleRootKeyEvent(keyEvent))
-            return true;
-
-        return base.ProcessHotKey(keyEvent);
-    }
-
     public void ConfirmAndQuit()
     {
-        var result = MessageBox.Query("Quit Kosh", "Are you sure you want to stop all services and exit?", "Yes", "No");
-        if (result == 0)
+        if (_isShowingDialog) return;
+        _isShowingDialog = true;
+        try
         {
-            Application.RequestStop();
+            var dialog = new Dialog
+            {
+                Title = " 🛑 Quit Kosh ",
+                Width = 60,
+                Height = 8
+            };
+
+            var label = new Label
+            {
+                Text = "Are you sure you want to stop all services and exit?",
+                X = 1,
+                Y = 1,
+                Width = Dim.Fill() - 2,
+                TextAlignment = Alignment.Center
+            };
+
+            bool confirmed = false;
+
+            var yesBtn = new Button { Text = "Yes", IsDefault = true };
+            yesBtn.Accepting += (s, e) =>
+            {
+                confirmed = true;
+                _app.RequestStop(dialog);
+            };
+
+            var noBtn = new Button { Text = "No" };
+            noBtn.Accepting += (s, e) =>
+            {
+                confirmed = false;
+                _app.RequestStop(dialog);
+            };
+
+            dialog.KeyDown += (s, key) =>
+            {
+                uint k = (uint)key;
+                char ch = (char)(k & 0xFFFF);
+                if (ch == 'y' || ch == 'Y' || key == Key.Y)
+                {
+                    confirmed = true;
+                    _app.RequestStop(dialog);
+                }
+                else if (ch == 'n' || ch == 'N' || key == Key.N || key == Key.Esc)
+                {
+                    confirmed = false;
+                    _app.RequestStop(dialog);
+                }
+            };
+
+            dialog.AddButton(yesBtn);
+            dialog.AddButton(noBtn);
+            dialog.Add(label);
+
+            _app.Run(dialog);
+
+            if (confirmed)
+            {
+                _app.RequestStop();
+            }
+        }
+        finally
+        {
+            _isShowingDialog = false;
         }
     }
 
     public void ConfirmAndClearLogs()
     {
-        var result = MessageBox.Query("Clear Logs", "Are you sure you want to clear all logs?", "Yes", "No");
-        if (result == 0)
+        if (_isShowingDialog) return;
+        _isShowingDialog = true;
+        try
         {
-            ClearLogs();
+            var dialog = new Dialog
+            {
+                Title = " 🧹 Clear Logs ",
+                Width = 56,
+                Height = 8
+            };
+
+            var label = new Label
+            {
+                Text = "Are you sure you want to clear all logs?",
+                X = 1,
+                Y = 1,
+                Width = Dim.Fill() - 2,
+                TextAlignment = Alignment.Center
+            };
+
+            bool confirmed = false;
+
+            var yesBtn = new Button { Text = "Yes", IsDefault = true };
+            yesBtn.Accepting += (s, e) =>
+            {
+                confirmed = true;
+                _app.RequestStop(dialog);
+            };
+
+            var noBtn = new Button { Text = "No" };
+            noBtn.Accepting += (s, e) =>
+            {
+                confirmed = false;
+                _app.RequestStop(dialog);
+            };
+
+            dialog.KeyDown += (s, key) =>
+            {
+                uint k = (uint)key;
+                char ch = (char)(k & 0xFFFF);
+                if (ch == 'y' || ch == 'Y' || key == Key.Y)
+                {
+                    confirmed = true;
+                    _app.RequestStop(dialog);
+                }
+                else if (ch == 'n' || ch == 'N' || key == Key.N || key == Key.Esc)
+                {
+                    confirmed = false;
+                    _app.RequestStop(dialog);
+                }
+            };
+
+            dialog.AddButton(yesBtn);
+            dialog.AddButton(noBtn);
+            dialog.Add(label);
+
+            _app.Run(dialog);
+
+            if (confirmed)
+            {
+                ClearLogs();
+            }
+        }
+        finally
+        {
+            _isShowingDialog = false;
         }
     }
 
@@ -721,41 +753,68 @@ public sealed class KoshTuiDashboard : Window
 
     public void ShowHelpDialog()
     {
-        var dialog = new Dialog(" 💡 KOSH CLI HELP ", 72, 22);
-
-        var helpText =
-            "────────────────────────── COMMANDS ──────────────────────────\n" +
-            string.Format("  {0,-25} {1}\n", "view <svc|all>", "Filter logs by service name") +
-            string.Format("  {0,-25} {1}\n", "find <query>", "Search all logs for keyword") +
-            string.Format("  {0,-25} {1}\n", "find <svc> <query>", "Search specific service logs") +
-            string.Format("  {0,-25} {1}\n", "start <svc>", "Start stopped/not-started service") +
-            string.Format("  {0,-25} {1}\n", "stop <svc>", "Stop running service") +
-            string.Format("  {0,-25} {1}\n", "clear", "Clear log buffer") +
-            string.Format("  {0,-25} {1}\n\n", "quit", "Exit Kosh CLI") +
-            "───────────────────── SERVICE STATUS ICONS ───────────────────\n" +
-            "  ● Running      ✔ Ready          ✖ Failed\n" +
-            "  ▲ Starting     ■ Stopped        ○ Not Started\n\n" +
-            "───────────────────── KEYBOARD SHORTCUTS ─────────────────────\n" +
-            string.Format("  {0,-16} {1}\n", "H", "Open this Help dialog") +
-            string.Format("  {0,-16} {1}\n", "Shift + Drag", "Native terminal text selection") +
-            string.Format("  {0,-16} {1}\n", "Tab", "Cycle command suggestions") +
-            string.Format("  {0,-16} {1}", "C / Q", "Clear log buffer / Quit Kosh CLI");
-
-        var label = new Label(helpText)
+        if (_isShowingDialog) return;
+        _isShowingDialog = true;
+        try
         {
-            X = 1,
-            Y = 0,
-            Width = Dim.Fill() - 2,
-            Height = Dim.Fill() - 2,
-            TextAlignment = TextAlignment.Left
-        };
+            var dialog = new Dialog
+            {
+                Title = " 💡 KOSH CLI HELP ",
+                Width = 76,
+                Height = 28
+            };
 
-        var closeBtn = new Button("Close");
-        closeBtn.Clicked += () => Application.RequestStop();
-        dialog.AddButton(closeBtn);
+            var helpText =
+                "────────────────────────── COMMANDS ──────────────────────────\n" +
+                string.Format("  {0,-25} {1}\n", "view <svc|all>", "Filter logs by service name") +
+                string.Format("  {0,-25} {1}\n", "find <query>", "Search all logs for keyword") +
+                string.Format("  {0,-25} {1}\n", "find <svc> <query>", "Search specific service logs") +
+                string.Format("  {0,-25} {1}\n", "start <svc>", "Start stopped/not-started service") +
+                string.Format("  {0,-25} {1}\n", "stop <svc>", "Stop running service") +
+                string.Format("  {0,-25} {1}\n", "clear", "Clear log buffer") +
+                string.Format("  {0,-25} {1}\n\n", "quit", "Exit Kosh CLI") +
+                "───────────────────── SERVICE STATUS ICONS ───────────────────\n" +
+                "  ● Running      ✔ Ready          ✖ Failed\n" +
+                "  ▲ Starting     ■ Stopped        ○ Not Started\n\n" +
+                "───────────────────── KEYBOARD SHORTCUTS ─────────────────────\n" +
+                string.Format("  {0,-24} {1}\n", ":  or  V / F", "Open command input prompt") +
+                string.Format("  {0,-24} {1}\n", "Up / Down / PgUp / PgDn", "Scroll logs up and down") +
+                string.Format("  {0,-24} {1}\n", "Mouse Wheel / Touchpad", "Scroll logs smoothly") +
+                string.Format("  {0,-24} {1}\n", "Tab", "Cycle command suggestions") +
+                string.Format("  {0,-24} {1}\n", "Shift + Drag", "Native terminal text selection") +
+                string.Format("  {0,-24} {1}\n", "H", "Open this Help dialog") +
+                string.Format("  {0,-24} {1}\n", "C", "Clear log buffer") +
+                string.Format("  {0,-24} {1}", "Q", "Quit Kosh CLI");
 
-        dialog.Add(label);
-        Application.Run(dialog);
+            var label = new Label
+            {
+                Text = helpText,
+                X = 1,
+                Y = 0,
+                Width = Dim.Fill() - 2,
+                Height = Dim.Fill() - 2,
+                TextAlignment = Alignment.Start
+            };
+
+            var closeBtn = new Button { Text = "Close", IsDefault = true };
+            closeBtn.Accepting += (s, e) => _app.RequestStop(dialog);
+
+            dialog.KeyDown += (s, key) =>
+            {
+                if (key == Key.Esc || key == Key.Enter)
+                {
+                    _app.RequestStop(dialog);
+                }
+            };
+
+            dialog.AddButton(closeBtn);
+            dialog.Add(label);
+            _app.Run(dialog);
+        }
+        finally
+        {
+            _isShowingDialog = false;
+        }
     }
 
     public void ClearLogs()

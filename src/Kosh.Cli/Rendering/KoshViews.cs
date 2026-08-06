@@ -1,49 +1,79 @@
 using System.Collections.Concurrent;
+using System.Drawing;
 using System.Text;
 using Kosh.Core.Runtime;
-using Terminal.Gui;
+using Terminal.Gui.Drawing;
+using Terminal.Gui.Input;
+using Terminal.Gui.ViewBase;
+using Terminal.Gui.Views;
+
+using Attribute = Terminal.Gui.Drawing.Attribute;
+using Color = Terminal.Gui.Drawing.Color;
+using DrawContext = Terminal.Gui.ViewBase.DrawContext;
+using View = Terminal.Gui.ViewBase.View;
 
 namespace Kosh.Cli.Rendering;
 
 internal static class ServiceColorManager
 {
-    private static readonly Color[] _palette = 
+    private static readonly ConcurrentDictionary<string, Attribute> _colorMap = new();
+
+    private static uint GetDeterministicHash(string str)
     {
-        Color.BrightCyan,
-        Color.BrightGreen,
-        Color.BrightMagenta,
-        Color.BrightYellow,
-        Color.BrightBlue,
-        Color.Cyan,
-        Color.Green,
-        Color.Magenta,
-        Color.Brown,
-        Color.Blue
-    };
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (char c in str.ToLowerInvariant())
+            {
+                hash = (hash ^ c) * 16777619;
+            }
+            return hash;
+        }
+    }
 
-    private static readonly ConcurrentDictionary<string, Terminal.Gui.Attribute> _colorMap = new();
+    private static Color HslToColor(float h, float s, float l)
+    {
+        float c = (1f - Math.Abs(2f * l - 1f)) * s;
+        float x = c * (1f - Math.Abs((h / 60f) % 2f - 1f));
+        float m = l - c / 2f;
 
-    public static Terminal.Gui.Attribute GetColor(string serviceName)
+        float r1 = 0, g1 = 0, b1 = 0;
+        if (h < 60) { r1 = c; g1 = x; b1 = 0; }
+        else if (h < 120) { r1 = x; g1 = c; b1 = 0; }
+        else if (h < 180) { r1 = 0; g1 = c; b1 = x; }
+        else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
+        else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
+        else { r1 = c; g1 = 0; b1 = x; }
+
+        byte r = (byte)Math.Clamp((r1 + m) * 255f, 0f, 255f);
+        byte g = (byte)Math.Clamp((g1 + m) * 255f, 0f, 255f);
+        byte b = (byte)Math.Clamp((b1 + m) * 255f, 0f, 255f);
+
+        return new Color(r, g, b);
+    }
+
+    public static Attribute GetColor(string serviceName)
     {
         return _colorMap.GetOrAdd(serviceName, name =>
         {
-            var hash = Math.Abs(name.GetHashCode());
-            var color = _palette[hash % _palette.Length];
-            return Terminal.Gui.Attribute.Make(color, Color.Black);
+            var hash = GetDeterministicHash(name);
+            float hue = hash % 360;
+            var color = HslToColor(hue, 0.85f, 0.65f);
+            return new Attribute(color, Color.None);
         });
     }
 
-    public static Terminal.Gui.Attribute GetStatusColor(ServiceStatus status)
+    public static Attribute GetStatusColor(ServiceStatus status)
     {
         return status switch
         {
-            ServiceStatus.Running => Terminal.Gui.Attribute.Make(Color.BrightGreen, Color.Black),
-            ServiceStatus.Ready => Terminal.Gui.Attribute.Make(Color.BrightCyan, Color.Black),
-            ServiceStatus.Stopped => Terminal.Gui.Attribute.Make(Color.Gray, Color.Black),
-            ServiceStatus.Failed => Terminal.Gui.Attribute.Make(Color.BrightRed, Color.Black),
-            ServiceStatus.Starting => Terminal.Gui.Attribute.Make(Color.BrightYellow, Color.Black),
-            ServiceStatus.NotStarted => Terminal.Gui.Attribute.Make(Color.DarkGray, Color.Black),
-            _ => Terminal.Gui.Attribute.Make(Color.Gray, Color.Black)
+            ServiceStatus.Running => new Attribute(Color.BrightGreen, Color.None),
+            ServiceStatus.Ready => new Attribute(Color.BrightCyan, Color.None),
+            ServiceStatus.Stopped => new Attribute(Color.Gray, Color.None),
+            ServiceStatus.Failed => new Attribute(Color.BrightRed, Color.None),
+            ServiceStatus.Starting => new Attribute(Color.BrightYellow, Color.None),
+            ServiceStatus.NotStarted => new Attribute(Color.DarkGray, Color.None),
+            _ => new Attribute(Color.Gray, Color.None)
         };
     }
 
@@ -74,11 +104,14 @@ internal sealed class HeaderView : View
 {
     private readonly ConcurrentDictionary<string, ServiceStatus> _serviceStatuses;
     private readonly List<string> _orderedServices;
+    private int _lastNeededHeight = -1;
+
+    public event Action? HeightNeededChanged;
 
     public int GetAvailableWidth()
     {
-        if (Bounds.Width > 0) return Bounds.Width;
-        if (SuperView != null && SuperView.Bounds.Width > 2) return SuperView.Bounds.Width - 2;
+        if (Viewport.Width > 0) return Viewport.Width;
+        if (SuperView != null && SuperView.Viewport.Width > 2) return SuperView.Viewport.Width - 2;
         return Math.Max(10, Console.WindowWidth - 4);
     }
 
@@ -117,19 +150,15 @@ internal sealed class HeaderView : View
         _orderedServices = ordered;
     }
 
-    public override void Redraw(Rect bounds)
+    protected override bool OnDrawingContent(DrawContext? context)
     {
-        base.Redraw(bounds);
-        Clear();
+        base.OnDrawingContent(context);
 
         List<string> snapshot;
         lock (_orderedServices) { snapshot = _orderedServices.ToList(); }
 
-        var normalAttr = Terminal.Gui.Attribute.Make(Color.White, Color.Black);
-        var dividerAttr = Terminal.Gui.Attribute.Make(Color.DarkGray, Color.Black);
-
-        Move(0, 0);
-        Driver.SetAttribute(normalAttr);
+        var normalAttr = new Attribute(Color.White, Color.None);
+        var dividerAttr = new Attribute(Color.DarkGray, Color.None);
 
         var horizontalOffset = 1;
         var currentX = horizontalOffset;
@@ -149,37 +178,135 @@ internal sealed class HeaderView : View
                     currentX = horizontalOffset;
                 }
 
-                Move(currentX, currentY);
-                Driver.SetAttribute(ServiceColorManager.GetColor(service));
-                Driver.AddStr(service);
-                Driver.SetAttribute(normalAttr);
-                Driver.AddStr(" ");
-                Driver.SetAttribute(ServiceColorManager.GetStatusColor(status));
-                Driver.AddStr(icon);
+                SetAttribute(ServiceColorManager.GetColor(service));
+                AddStr(currentX, currentY, service);
+                currentX += service.Length;
+
+                SetAttribute(normalAttr);
+                AddStr(currentX, currentY, " ");
+                currentX += 1;
+
+                SetAttribute(ServiceColorManager.GetStatusColor(status));
+                AddStr(currentX, currentY, icon);
+                currentX += icon.Length;
 
                 if (i < snapshot.Count - 1)
                 {
-                    Driver.SetAttribute(dividerAttr);
-                    Driver.AddStr(" │ ");
+                    SetAttribute(dividerAttr);
+                    AddStr(currentX, currentY, " │ ");
+                    currentX += 3;
                 }
-
-                currentX += textLength;
             }
         }
+
+        int neededHeight = currentY + 1;
+        if (neededHeight != _lastNeededHeight)
+        {
+            _lastNeededHeight = neededHeight;
+            HeightNeededChanged?.Invoke();
+        }
+
+        return true;
     }
 }
 
 internal sealed class LogView : View
 {
-    public List<FlatLogLine> Entries { get; set; } = new();
+    public List<LogEntry> RawEntries { get; set; } = new();
+    private List<FlatLogLine> _flatLines = new();
     
     private int _topRow = 0;
     private bool _autoScroll = true;
-    
-    public void SetLines(List<FlatLogLine> lines, bool forceScrollToBottom = false)
+    private int _lastViewportWidth = -1;
+
+    public LogView()
     {
-        Entries = lines;
-        var maxTop = Math.Max(0, Entries.Count - Bounds.Height);
+        CanFocus = true;
+
+        KeyDown += (sender, key) =>
+        {
+            if (key == Key.CursorUp) { ScrollUp(); }
+            else if (key == Key.CursorDown) { ScrollDown(); }
+            else if (key == Key.PageUp) { ScrollUp(Viewport.Height); }
+            else if (key == Key.PageDown) { ScrollDown(Viewport.Height); }
+        };
+
+        MouseEvent += (sender, mouse) =>
+        {
+            if (mouse.Flags.HasFlag(MouseFlags.WheeledUp))
+            {
+                ScrollUp(3);
+                mouse.Handled = true;
+            }
+            else if (mouse.Flags.HasFlag(MouseFlags.WheeledDown))
+            {
+                ScrollDown(3);
+                mouse.Handled = true;
+            }
+        };
+    }
+
+    public void SetRawEntries(List<LogEntry> entries, bool forceScrollToBottom = false)
+    {
+        RawEntries = entries;
+        RebuildFlatLines(forceScrollToBottom);
+    }
+
+    private void RebuildFlatLines(bool forceScrollToBottom = false)
+    {
+        int vw = Math.Max(20, Viewport.Width);
+        _lastViewportWidth = vw;
+
+        var newFlatLines = new List<FlatLogLine>();
+
+        foreach (var entry in RawEntries)
+        {
+            var lines = entry.Message.Split('\n');
+
+            for (int lineIdx = 0; lineIdx < lines.Length; lineIdx++)
+            {
+                var rawLine = lines[lineIdx];
+                bool isFirstLineOfMessage = (lineIdx == 0);
+
+                if (string.IsNullOrEmpty(rawLine))
+                {
+                    newFlatLines.Add(new FlatLogLine
+                    {
+                        ServiceName = entry.ServiceName,
+                        Message = "",
+                        IsError = entry.IsError,
+                        IsContinuation = !isFirstLineOfMessage
+                    });
+                    continue;
+                }
+
+                int offset = 0;
+                bool isFirstChunk = isFirstLineOfMessage;
+
+                while (offset < rawLine.Length)
+                {
+                    int prefixLen = entry.ServiceName.Length + 3 + (isFirstChunk && entry.IsError ? 6 : 2);
+                    int currentMaxLen = Math.Max(10, vw - prefixLen);
+
+                    int lengthToTake = Math.Min(currentMaxLen, rawLine.Length - offset);
+                    string chunk = rawLine.Substring(offset, lengthToTake);
+
+                    newFlatLines.Add(new FlatLogLine
+                    {
+                        ServiceName = entry.ServiceName,
+                        Message = chunk,
+                        IsError = entry.IsError,
+                        IsContinuation = !isFirstChunk
+                    });
+
+                    offset += lengthToTake;
+                    isFirstChunk = false;
+                }
+            }
+        }
+
+        _flatLines = newFlatLines;
+        var maxTop = Math.Max(0, _flatLines.Count - Viewport.Height);
 
         if (forceScrollToBottom || _autoScroll)
         {
@@ -191,100 +318,87 @@ internal sealed class LogView : View
             _topRow = Math.Min(_topRow, maxTop);
         }
 
-        SetNeedsDisplay();
-    }
-    
-    public override bool ProcessKey(KeyEvent keyEvent)
-    {
-        var flags = keyEvent.Key;
-        if (flags == Key.CursorUp) { ScrollUp(); return true; }
-        if (flags == Key.CursorDown) { ScrollDown(); return true; }
-        if (flags == Key.PageUp) { ScrollUp(Bounds.Height); return true; }
-        if (flags == Key.PageDown) { ScrollDown(Bounds.Height); return true; }
-        return base.ProcessKey(keyEvent);
+        SetNeedsDraw();
     }
 
-    public override bool MouseEvent(MouseEvent mouseEvent)
-    {
-        if (mouseEvent.Flags.HasFlag(MouseFlags.WheeledUp))
-        {
-            ScrollUp(3);
-            return true;
-        }
-        if (mouseEvent.Flags.HasFlag(MouseFlags.WheeledDown))
-        {
-            ScrollDown(3);
-            return true;
-        }
-        return base.MouseEvent(mouseEvent);
-    }
-
-    private void ScrollUp(int lines = 1)
+    public void ScrollUp(int lines = 1)
     {
         _autoScroll = false;
         _topRow = Math.Max(0, _topRow - lines);
-        SetNeedsDisplay();
+        SetNeedsDraw();
     }
 
-    private void ScrollDown(int lines = 1)
+    public void ScrollDown(int lines = 1)
     {
-        var maxTop = Math.Max(0, Entries.Count - Bounds.Height);
+        var maxTop = Math.Max(0, _flatLines.Count - Viewport.Height);
         _topRow = Math.Min(maxTop, _topRow + lines);
         if (_topRow >= maxTop)
         {
             _autoScroll = true;
         }
-        SetNeedsDisplay();
+        SetNeedsDraw();
     }
-    
+
     public void ScrollToBottom()
     {
         _autoScroll = true;
-        _topRow = Math.Max(0, Entries.Count - Bounds.Height);
-        SetNeedsDisplay();
+        _topRow = Math.Max(0, _flatLines.Count - Viewport.Height);
+        SetNeedsDraw();
     }
-    
-    public override void Redraw(Rect bounds)
-    {
-        base.Redraw(bounds);
-        Clear();
 
-        var normalAttr = Terminal.Gui.Attribute.Make(Color.Gray, Color.Black);
-        var errAttr = Terminal.Gui.Attribute.Make(Color.BrightRed, Color.Black);
-        var contAttr = Terminal.Gui.Attribute.Make(Color.DarkGray, Color.Black);
+    protected override bool OnDrawingContent(DrawContext? context)
+    {
+        base.OnDrawingContent(context);
+
+        if (Viewport.Width != _lastViewportWidth && Viewport.Width > 0)
+        {
+            RebuildFlatLines(forceScrollToBottom: false);
+        }
+
+        var bounds = Viewport;
+        var normalAttr = new Attribute(Color.Gray, Color.None);
+        var errAttr = new Attribute(Color.BrightRed, Color.None);
+        var contAttr = new Attribute(Color.DarkGray, Color.None);
 
         for (int i = 0; i < bounds.Height; i++)
         {
             int idx = _topRow + i;
-            if (idx >= Entries.Count) break;
 
-            var entry = Entries[idx];
-            Move(0, i);
-            
-            var sColor = ServiceColorManager.GetColor(entry.ServiceName);
-            Driver.SetAttribute(sColor);
-            Driver.AddStr($"[{entry.ServiceName}] ");
+            if (idx >= _flatLines.Count)
+            {
+                break;
+            }
+
+            var entry = _flatLines[idx];
+
+            SetAttribute(ServiceColorManager.GetColor(entry.ServiceName));
+            AddStr(0, i, $"[{entry.ServiceName}] ");
+
+            var col = entry.ServiceName.Length + 3;
 
             if (entry.IsError && !entry.IsContinuation)
             {
-                Driver.SetAttribute(errAttr);
-                Driver.AddStr("[ERR] ");
+                SetAttribute(errAttr);
+                AddStr(col, i, "[ERR] ");
+                col += 6;
             }
             else if (entry.IsContinuation)
             {
-                Driver.SetAttribute(normalAttr);
-                Driver.AddStr("  "); // Indent for continuation
+                SetAttribute(normalAttr);
+                AddStr(col, i, "  ");
+                col += 2;
             }
-            
-            Driver.SetAttribute(entry.IsError ? errAttr : (entry.IsContinuation ? contAttr : normalAttr));
+
+            SetAttribute(entry.IsError ? errAttr : (entry.IsContinuation ? contAttr : normalAttr));
             var msg = entry.Message.Replace('\t', ' ');
-            
-            // Avoid driver crashing on too long strings
-            var prefixLen = entry.ServiceName.Length + 3 + (entry.IsError && !entry.IsContinuation ? 6 : (entry.IsContinuation ? 2 : 0));
-            var maxMsgLen = Math.Max(0, bounds.Width - prefixLen);
+
+            var maxMsgLen = Math.Max(0, bounds.Width - col);
             if (msg.Length > maxMsgLen) msg = msg.Substring(0, maxMsgLen);
-            
-            Driver.AddStr(msg);
+
+            AddStr(col, i, msg);
         }
+
+        return true;
     }
 }
+

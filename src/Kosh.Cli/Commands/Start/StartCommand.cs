@@ -32,18 +32,14 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         // Use TUI mode if interactive and --no-tui is not specified
         if (!settings.NoTui && !Console.IsOutputRedirected)
         {
-            Terminal.Gui.Application.Init();
-            var top = Terminal.Gui.Application.Top;
-            var dashboard = new KoshTuiDashboard(configDefinitionResult.Value.ProjectName, supervisor);
-            top.Add(dashboard);
-
-            // Global Key Interception (Evaluated BEFORE focused controls swallow keys)
-            Terminal.Gui.Application.RootKeyEvent = (keyEvent) => dashboard.HandleRootKeyEvent(keyEvent);
+            using var app = Terminal.Gui.App.Application.Create();
+            app.Init();
+            var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value.ProjectName, supervisor);
 
             ConsoleCancelEventHandler cancelHandler = (_, e) =>
             {
                 e.Cancel = true;
-                Terminal.Gui.Application.MainLoop?.Invoke(() => Terminal.Gui.Application.RequestStop());
+                app.Invoke(() => app.RequestStop());
             };
             Console.CancelKeyPress += cancelHandler;
 
@@ -67,12 +63,11 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 
             try
             {
-                Terminal.Gui.Application.Run();
+                app.Run(dashboard);
             }
             finally
             {
                 Console.CancelKeyPress -= cancelHandler;
-                Terminal.Gui.Application.Shutdown();
                 KoshConsole.Info("Stopping all services...");
                 await supervisor.StopAllAsync(CancellationToken.None);
                 KoshConsole.Success("All services stopped.");
