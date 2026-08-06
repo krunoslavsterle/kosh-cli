@@ -9,10 +9,13 @@ namespace Kosh.Runners;
 public sealed class RunningProcess : IRunningProcess, IDisposable
 {
     private readonly Subject<ProcessLog> _logs = new();
+    private readonly Subject<ProcessMetrics> _metrics = new();
+    private readonly CancellationTokenSource _metricsCts = new();
     private bool _disposed;
 
     public ServiceId ServiceId { get; }
     public IObservable<ProcessLog> Logs => _logs;
+    public IObservable<ProcessMetrics> Metrics => _metrics;
     public TaskCompletionSource<int> Ready { get; } = new();
 
     private readonly Process _process;
@@ -38,6 +41,46 @@ public sealed class RunningProcess : IRunningProcess, IDisposable
         {
             _logs.OnCompleted();
         };
+
+        StartMetricsLoop();
+    }
+
+    private async void StartMetricsLoop()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+        try
+        {
+            var lastTime = DateTime.UtcNow;
+            var lastTotalProcessorTime = _process.TotalProcessorTime;
+
+            while (await timer.WaitForNextTickAsync(_metricsCts.Token))
+            {
+                if (_process.HasExited) break;
+                
+                _process.Refresh();
+                
+                var currentTime = DateTime.UtcNow;
+                var currentTotalProcessorTime = _process.TotalProcessorTime;
+
+                var cpuUsedMs = (currentTotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds;
+                var totalMsPassed = (currentTime - lastTime).TotalMilliseconds;
+                var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
+                var cpuPercent = cpuUsageTotal * 100;
+
+                lastTime = currentTime;
+                lastTotalProcessorTime = currentTotalProcessorTime;
+
+                _metrics.OnNext(new ProcessMetrics(cpuPercent, _process.WorkingSet64));
+            }
+        }
+        catch
+        {
+            // Ignore errors (e.g., process exited)
+        }
+        finally
+        {
+            _metrics.OnCompleted();
+        }
     }
 
     public async Task<int> WaitForExitAsync(CancellationToken ct)
@@ -88,6 +131,10 @@ public sealed class RunningProcess : IRunningProcess, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        _metricsCts.Cancel();
+        _metricsCts.Dispose();
+        _metrics.Dispose();
 
         try
         {

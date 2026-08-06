@@ -31,7 +31,7 @@ This makes installation, updates, and removal extremely simple and fully cross�
 
 You need:
 
-- .NET Runtime **8.0 or later**  
+- .NET Runtime **10.0 or later**  
   Download: https://dotnet.microsoft.com/download
 
 Check your version:
@@ -149,6 +149,7 @@ A list of all services that kosh will start. Each service entry contains:
 | **env**        | N   | Environment variables passed to the runner                                                                 |
 | **inheritEnv** | N   | Flag indicating should a service inherit environment variables from a global `.env` (**false** by default) |
 | **logs**       | N   | Kind of logs that should be streamed to the terminal [none, error, all] (**all** by default)               |
+| **manualStart**| N   | If true, the service will not start automatically; it must be started manually (**false** by default)      |
 
 ---
 
@@ -340,7 +341,27 @@ Run:
 kosh start
 ```
 
-kosh will launch every service defined in koshconfig.yaml and show logs in the same terminal.
+kosh will launch every service defined in koshconfig.yaml and open an **Interactive Terminal Dashboard (TUI)**.
+
+### 🖥️ Interactive Dashboard (TUI) Features
+
+The new dashboard gives you complete control over your running services:
+
+- **Service Status Overview**: Instantly see which services are running, starting, ready, or stopped.
+- **Expanded View**: Press `S` to toggle an expanded table showing more details (Group, Port, and ManualStart).
+- **Log Management**:
+  - Smooth scrolling via Mouse Wheel or Touchpad.
+  - Native text selection (`Shift + Drag`).
+  - Clear logs instantly with `C`.
+- **Command Palette**: Press `:` to open the command input. Available commands:
+  - `find <query>`: Pure substring search across all current logs (creates a dedicated view showing only matching logs).
+  - `view all`: Reset view to show all logs.
+  - *(More commands coming soon!)*
+- **Shortcuts**:
+  - `C`: Clear Logs
+  - `S`: Expand/Compact Services
+  - `Q`: Quit
+  - `H`: Help Dialog
 
 ## 4. Stop all services
 
@@ -357,6 +378,35 @@ To update to the latest version:
 ```bash
 dotnet tool update -g kosh
 ```
+
+---
+
+# 🎮 Demo Project
+
+This repository includes a full-featured demo project located in the `demo` folder. It serves as a practical showcase of everything **kosh** can do. 
+
+The demo orchestrates a complex, multi-service architecture including:
+- **Infrastructure (`docker-compose`)**: Background infrastructure and services.
+- **Reverse Proxy (`caddy`)**: Gateway handling local SSL certificates and routing.
+- **Database Migrations (`dotnet-run`)**: One-off execution scripts that pause other services until completed.
+- **Backend API (`dotnet-watch`)**: An ASP.NET Core API with hot-reload enabled.
+- **Background Worker (`dotnet-watch`)**: A dotnet worker with the `manualStart` flag enabled.
+- **Frontend Clients (`npm`)**: React and Angular applications running simultaneously.
+
+### How to run the Demo
+
+To experience **kosh** in action, clone this repository and follow these steps:
+
+1. Navigate to the `demo` directory:
+   ```bash
+   cd demo
+   ```
+2. Run kosh:
+   ```bash
+   kosh start
+   ```
+
+*(Note: Since the demo configures local domains in your `.hosts` file, you may be prompted for an administrator password when Caddy or Kosh initializes the network).*
 
 ---
 

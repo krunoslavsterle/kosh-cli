@@ -190,6 +190,11 @@ public sealed class Supervisor : ISupervisor
 
         runtime.SetProcess(process);
         runtime.Status = ServiceStatus.Running;
+        
+        process.Metrics.Subscribe(metrics => 
+        {
+            runtime.Metrics = metrics;
+        });
 
         _ = process.Ready.Task.ContinueWith((Task _) =>
         {

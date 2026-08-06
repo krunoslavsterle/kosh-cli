@@ -108,6 +108,7 @@ internal sealed class HeaderView : View
     private readonly List<string> _orderedServices;
     private readonly ConcurrentDictionary<string, ServiceDefinition> _serviceDefs;
     private readonly Dictionary<string, string> _serviceGroups;
+    private readonly ConcurrentDictionary<string, ServiceRuntime> _runtimes;
     
     private int _lastNeededHeight = -1;
     public bool IsExpanded { get; set; } = false;
@@ -156,12 +157,14 @@ internal sealed class HeaderView : View
     }
 
     public HeaderView(ConcurrentDictionary<string, ServiceStatus> statuses, List<string> ordered, 
-                      ConcurrentDictionary<string, ServiceDefinition> defs, Dictionary<string, string> groups)
+                      ConcurrentDictionary<string, ServiceDefinition> defs, Dictionary<string, string> groups,
+                      ConcurrentDictionary<string, ServiceRuntime> runtimes)
     {
         _serviceStatuses = statuses;
         _orderedServices = ordered;
         _serviceDefs = defs;
         _serviceGroups = groups;
+        _runtimes = runtimes;
     }
 
     protected override bool OnDrawingContent(DrawContext? context)
@@ -178,8 +181,8 @@ internal sealed class HeaderView : View
         {
             var headerAttr = new Attribute(Color.BrightYellow, Color.None);
 
-            string header = string.Format("{0,-20} {1,-16} {2,-20} {3,-8} {4,-8} {5,-10} {6,-12}", 
-                "Service", "Status", "Group", "Port", "CPU", "Memory", "ManualStart");
+            string header = string.Format("{0,-20} {1,-16} {2,-20} {3,-8} {4,-12}", 
+                "Service", "Status", "Group", "Port", "ManualStart");
 
             SetAttribute(headerAttr);
             AddStr(1, 0, header);
@@ -229,9 +232,7 @@ internal sealed class HeaderView : View
                     SetAttribute(normalAttr);
                     AddStr(39, cY, string.Format("{0,-20}", groupName.Length > 20 ? groupName.Substring(0, 20) : groupName));
                     AddStr(60, cY, string.Format("{0,-8}", port.Length > 8 ? port.Substring(0, 8) : port));
-                    AddStr(69, cY, string.Format("{0,-8}", "-")); // CPU
-                    AddStr(78, cY, string.Format("{0,-10}", "-")); // Memory
-                    AddStr(89, cY, string.Format("{0,-12}", manualStart));
+                    AddStr(69, cY, string.Format("{0,-12}", manualStart));
                     cY++;
                 }
             }

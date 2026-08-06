@@ -53,6 +53,7 @@ public sealed class KoshTuiDashboard : Window
     private readonly ConfigDefinition _config;
     private readonly Dictionary<string, string> _serviceGroups = new();
     private readonly ConcurrentDictionary<string, ServiceDefinition> _serviceDefs = new();
+    private readonly ConcurrentDictionary<string, ServiceRuntime> _runtimes = new(StringComparer.OrdinalIgnoreCase);
 
     public KoshTuiDashboard(IApplication app, ConfigDefinition config, ISupervisor? supervisor = null)
     {
@@ -84,7 +85,7 @@ public sealed class KoshTuiDashboard : Window
 
         ApplyNativeTerminalTheme();
 
-        _headerView = new HeaderView(_serviceStatuses, _orderedServices, _serviceDefs, _serviceGroups)
+        _headerView = new HeaderView(_serviceStatuses, _orderedServices, _serviceDefs, _serviceGroups, _runtimes)
         {
             X = 0,
             Y = 0,
@@ -189,12 +190,21 @@ public sealed class KoshTuiDashboard : Window
 
         _statusBar = new StatusBar();
         _statusBar.SetScheme(GetStatusBarColorScheme());
-        _statusBar.AddShortcutAt(0, new Shortcut { Key = Key.Q, Text = "Quit" });
-        _statusBar.AddShortcutAt(1, new Shortcut { Key = Key.H, Text = "Help" });
-        _statusBar.AddShortcutAt(2, new Shortcut { Key = Key.C, Text = "Clear Logs" });
-        _statusBar.AddShortcutAt(3, new Shortcut { Key = Key.S, Text = "Expand Services" });
+        _statusBar.AddShortcutAt(0, new Shortcut { Key = Key.C, Text = "Clear Logs" });
+        _statusBar.AddShortcutAt(1, new Shortcut { Key = Key.S, Text = "Expand Services" });
+        _statusBar.AddShortcutAt(2, new Shortcut { Key = Key.Q, Text = "Quit" });
+        _statusBar.AddShortcutAt(3, new Shortcut { Key = Key.H, Text = "Help" });
 
         Add(_headerFrame, _logFrame, _cmdFrame, _statusBar);
+
+        _app.AddTimeout(TimeSpan.FromSeconds(2), () =>
+        {
+            if (_headerView.IsExpanded)
+            {
+                RefreshHeader();
+            }
+            return true;
+        });
     }
 
     private void ScheduleUpdate()
@@ -250,6 +260,7 @@ public sealed class KoshTuiDashboard : Window
 
     public void UpdateServiceStatus(ServiceRuntime runtime)
     {
+        _runtimes[runtime.Definition.Name] = runtime;
         _serviceStatuses[runtime.Definition.Name] = runtime.Status;
         _serviceNameToId[runtime.Definition.Name] = runtime.Definition.Id;
 
@@ -603,8 +614,8 @@ public sealed class KoshTuiDashboard : Window
             _headerView.IsExpanded = !_headerView.IsExpanded;
             _headerFrame.Title = _headerView.IsExpanded ? "Status Overview (Expanded)" : "Status Overview";
             
-            _statusBar.RemoveShortcut(3);
-            _statusBar.AddShortcutAt(3, new Shortcut { Key = Key.S, Text = _headerView.IsExpanded ? "Compact Services" : "Expand Services" });
+            _statusBar.RemoveShortcut(1);
+            _statusBar.AddShortcutAt(1, new Shortcut { Key = Key.S, Text = _headerView.IsExpanded ? "Compact Services" : "Expand Services" });
 
             RefreshHeader();
             return true;

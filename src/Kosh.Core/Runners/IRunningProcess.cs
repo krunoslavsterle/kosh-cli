@@ -8,6 +8,7 @@ public interface IRunningProcess
     ServiceId ServiceId { get; }
 
     IObservable<ProcessLog> Logs { get; }
+    IObservable<ProcessMetrics> Metrics { get; }
     TaskCompletionSource<int> Ready { get; }
 
     Task<int> WaitForExitAsync(CancellationToken ct);
