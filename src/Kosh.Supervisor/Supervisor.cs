@@ -162,7 +162,7 @@ public sealed class Supervisor : ISupervisor
 
 
     // Start a single Service in BLOCKING mode.
-    public async Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct)
+    public async Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct, string? argsOverride = null)
     {
         if (!_services.TryGetValue(serviceId, out var runtime))
             return Result.Fail($"Service '{serviceId}' not found.");
@@ -178,7 +178,16 @@ public sealed class Supervisor : ISupervisor
         if (runnerResult.IsFailed)
             return runnerResult.ToResult();
 
-        var processResult = await runnerResult.Value.StartAsync(runtime.Definition, ct);
+        var definitionToRun = runtime.Definition;
+        if (!string.IsNullOrWhiteSpace(argsOverride))
+        {
+            var combinedArgs = string.IsNullOrWhiteSpace(definitionToRun.Args)
+                ? argsOverride
+                : $"{definitionToRun.Args} {argsOverride}";
+            definitionToRun = definitionToRun with { Args = combinedArgs };
+        }
+
+        var processResult = await runnerResult.Value.StartAsync(definitionToRun, ct);
         if (processResult.IsFailed)
         {
             runtime.Status = ServiceStatus.Failed;

@@ -23,7 +23,7 @@ services:
   - name: api
     type: dotnet-watch
     path: ./src/KoshDemo.Api
-    args: "--urls http://localhost:6001"
+    args: "--urls http://localhost:6001 --no-hot-reload"
     inheritEnv: true
     env:
       DOTNET_USE_POLLING_FILE_WATCHER: "1"

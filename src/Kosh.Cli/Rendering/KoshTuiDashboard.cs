@@ -412,7 +412,11 @@ public sealed class KoshTuiDashboard : Window
         else if (action is "start" or "s")
         {
             if (parts.Length > 1)
-                StartServiceByName(parts[1]);
+            {
+                var serviceName = parts[1];
+                var argsOverride = parts.Length > 2 ? string.Join(" ", parts.Skip(2)) : null;
+                StartServiceByName(serviceName, argsOverride);
+            }
         }
         else if (action is "stop" or "st")
         {
@@ -778,12 +782,12 @@ public sealed class KoshTuiDashboard : Window
         }
     }
 
-    private async void StartServiceByName(string name)
+    private async void StartServiceByName(string name, string? argsOverride = null)
     {
         if (_supervisor == null) return;
         if (_serviceNameToId.TryGetValue(name, out var id))
         {
-            await _supervisor.StartServiceAsync(id, CancellationToken.None);
+            await _supervisor.StartServiceAsync(id, CancellationToken.None, argsOverride);
         }
     }
 

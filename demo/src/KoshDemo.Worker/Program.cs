@@ -5,11 +5,14 @@ Console.WriteLine("===============================================");
 Console.WriteLine("   ⚙️ KOSH DEMO: Background Worker Started      ");
 Console.WriteLine("===============================================");
 
+string argsSummary = args.Length > 0 ? string.Join(" ", args) : "(none)";
+Console.WriteLine($"[WORKER] Passed Arguments: {argsSummary}");
+
 int cycle = 1;
 
 while (true)
 {
-    Console.WriteLine($"[WORKER] [Cycle #{cycle}] Processing background job queue...");
+    Console.WriteLine($"[WORKER] [Cycle #{cycle}] Processing background job queue... (Args: {argsSummary})");
     Thread.Sleep(2000);
     Console.WriteLine($"[WORKER] [Cycle #{cycle}] Processed {Random.Shared.Next(5, 30)} messages. Queue size: 0.");
 

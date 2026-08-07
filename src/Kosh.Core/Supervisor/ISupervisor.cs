@@ -9,7 +9,7 @@ public interface ISupervisor
 {
     Task<Result> StartAllAsync(CancellationToken ct);
     Task<Result> StartGroupAsync(GroupId groupId, CancellationToken ct);
-    Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct);
+    Task<Result> StartServiceAsync(ServiceId serviceId, CancellationToken ct, string? argsOverride = null);
     Task<Result> StopServiceAsync(ServiceId serviceId, CancellationToken ct);
     Task<Result> StopAllAsync(CancellationToken ct);
 
