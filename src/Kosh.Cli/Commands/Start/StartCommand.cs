@@ -29,54 +29,61 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 
         var supervisor = new Supervisor.Supervisor(configDefinitionResult.Value, new RunnerFactory());
 
-        // Use TUI mode if interactive and --no-tui is not specified
-        if (!settings.NoTui && !Console.IsOutputRedirected)
+        // Use TUI mode if --no-tui is not specified
+        if (!settings.NoTui)
         {
-            using var app = Terminal.Gui.App.Application.Create();
-            app.Init();
-            using var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value, supervisor);
-
-            var disposables = new List<IDisposable>();
-
-            ConsoleCancelEventHandler cancelHandler = (_, e) =>
-            {
-                e.Cancel = true;
-                app.Invoke(() => app.RequestStop());
-            };
-            Console.CancelKeyPress += cancelHandler;
-
-            disposables.Add(supervisor.ServiceEvents.Subscribe(runtime =>
-            {
-                dashboard.UpdateServiceStatus(runtime);
-            }));
-
-            disposables.Add(supervisor.ServiceLogs.Subscribe(log =>
-            {
-                dashboard.AppendLog(log.ServiceName, log.Line, log.Type == LogType.Error);
-            }));
-
-            disposables.Add(supervisor.GroupLogs.Subscribe(log =>
-            {
-                dashboard.AppendLog($"{log.GroupName}-group", log.Line, log.Type == LogType.Error);
-            }));
-
-            // Start services in background
-            var startTask = supervisor.StartAllAsync(ct);
-
             try
             {
-                app.Run(dashboard);
-            }
-            finally
-            {
-                foreach (var d in disposables) d.Dispose();
-                Console.CancelKeyPress -= cancelHandler;
-                KoshConsole.Info("Stopping all services...");
-                await supervisor.StopAllAsync(CancellationToken.None);
-                KoshConsole.Success("All services stopped.");
-            }
+                using var app = Terminal.Gui.App.Application.Create();
+                app.Init();
+                using var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value, supervisor);
 
-            return 0;
+                var disposables = new List<IDisposable>();
+
+                ConsoleCancelEventHandler cancelHandler = (_, e) =>
+                {
+                    e.Cancel = true;
+                    app.Invoke(() => app.RequestStop());
+                };
+                Console.CancelKeyPress += cancelHandler;
+
+                disposables.Add(supervisor.ServiceEvents.Subscribe(runtime =>
+                {
+                    dashboard.UpdateServiceStatus(runtime);
+                }));
+
+                disposables.Add(supervisor.ServiceLogs.Subscribe(log =>
+                {
+                    dashboard.AppendLog(log.ServiceName, log.Line, log.Type == LogType.Error);
+                }));
+
+                disposables.Add(supervisor.GroupLogs.Subscribe(log =>
+                {
+                    dashboard.AppendLog($"{log.GroupName}-group", log.Line, log.Type == LogType.Error);
+                }));
+
+                // Start services in background
+                var startTask = supervisor.StartAllAsync(ct);
+
+                try
+                {
+                    app.Run(dashboard);
+                }
+                finally
+                {
+                    foreach (var d in disposables) d.Dispose();
+                    Console.CancelKeyPress -= cancelHandler;
+                    KoshConsole.Info("Stopping all services...");
+                    await supervisor.StopAllAsync(CancellationToken.None);
+                    KoshConsole.Success("All services stopped.");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                KoshConsole.Info($"TUI unavailable ({ex.Message}), falling back to plain text mode.");
+            }
         }
 
         // Fallback / Plain Text mode (--no-tui or non-interactive)
