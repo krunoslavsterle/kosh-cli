@@ -30,7 +30,7 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Pack NuGet package
-        run: dotnet pack -c Release --no-build -o ./artifacts -p:Version=${VERSION}
+        run: dotnet pack src/Kosh.Cli/Kosh.Cli.csproj -c Release --no-build -o ./artifacts -p:Version=${VERSION}
 
       - name: Publish to NuGet
         run: dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

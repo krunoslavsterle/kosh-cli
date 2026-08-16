@@ -82,7 +82,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             }
             catch (Exception ex)
             {
-                KoshConsole.Info($"TUI unavailable ({ex.Message}), falling back to plain text mode.");
+                KoshConsole.Info($"TUI unavailable ({Spectre.Console.Markup.Escape(ex.Message)}), falling back to plain text mode.");
             }
         }
 
