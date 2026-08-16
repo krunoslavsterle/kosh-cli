@@ -35,7 +35,7 @@ public sealed class StartCommand : AsyncCommand<StartCommand.Settings>
             try
             {
                 using var app = Terminal.Gui.App.Application.Create();
-                app.Init();
+                app.Init(driverName: "dotnet");
                 using var dashboard = new KoshTuiDashboard(app, configDefinitionResult.Value, supervisor);
 
                 var disposables = new List<IDisposable>();
