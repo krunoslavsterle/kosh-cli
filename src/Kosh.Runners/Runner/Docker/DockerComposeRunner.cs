@@ -58,39 +58,82 @@ internal sealed class DockerComposeRunner : IRunner
         return Task.FromResult(Result.Ok<IRunningProcess>(runningProcess));
     }
 
-    // TODO: This is a temp solution. Implement readiness check based on `docker compose config --services`
     private static async Task<bool> WaitForComposeReady(CancellationToken ct, string workingDirectory)
     {
-        var lastCount = -1;
+        var expectedServices = GetExpectedServices(workingDirectory);
         var checkCount = 0;
 
         while (!ct.IsCancellationRequested)
         {
             if (++checkCount > 50)
-            {
-                Console.WriteLine("Waiting for docker compose up for too long!");
                 return false;
-            }
 
             var containers = GetComposeContainers(workingDirectory);
 
-            if (containers.Count == 0)
+            if (containers.Count > 0 && containers.All(c => c.State == "running"))
             {
-                await Task.Delay(300, ct);
-                continue;
-            }
+                // If we know the expected services, verify all are present
+                if (expectedServices.Count > 0)
+                {
+                    var runningNames = containers
+                        .Select(c => c.Name)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            if (lastCount != -1 && containers.Count == lastCount)
-            {
-                if (containers.All(c => c.State == "running"))
+                    // Docker Compose container names follow the pattern: <project>-<service>-<replica>
+                    // Check that every expected service has at least one matching container
+                    if (expectedServices.All(expected =>
+                        runningNames.Any(name => name.Contains(expected, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    // Fallback: no expected services info, use current behavior
                     return true;
+                }
             }
 
-            lastCount = containers.Count;
-            await Task.Delay(300, ct);
+            // Shorter delay on first few checks for already-running containers
+            await Task.Delay(checkCount <= 3 ? 100 : 300, ct);
         }
 
         return false;
+    }
+
+    private static List<string> GetExpectedServices(string workingDirectory)
+    {
+        try
+        {
+            using var p = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "docker",
+                    Arguments = "compose config --services",
+                    WorkingDirectory = workingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                },
+            };
+
+            p.Start();
+            var output = p.StandardOutput.ReadToEnd().Trim();
+            p.WaitForExit();
+
+            if (p.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
+                return [];
+
+            return output
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private static List<(string Name, string State)> GetComposeContainers(string workingDirectory)
@@ -118,35 +161,46 @@ internal sealed class DockerComposeRunner : IRunner
             if (string.IsNullOrWhiteSpace(output))
                 return [];
 
-            JsonNode? node;
+            var result = new List<(string Name, string State)>();
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+            // NDJSON: multiple JSON objects, one per line
+            if (lines.Length > 1)
+            {
+                foreach (var line in lines)
+                {
+                    try
+                    {
+                        var obj = JsonNode.Parse(line) as JsonObject;
+                        if (obj != null)
+                            result.Add((obj["Name"]?.ToString() ?? "", obj["State"]?.ToString() ?? ""));
+                    }
+                    catch { /* skip malformed lines */ }
+                }
+                return result;
+            }
+
+            // Single line: could be a JSON array or a single object
+            JsonNode? node;
             try
             {
                 node = JsonNode.Parse(output);
             }
             catch
             {
-                return new();
+                return [];
             }
 
-            var result = new List<(string Name, string State)>();
-
-            // CASE 1: array
             if (node is JsonArray arr)
             {
                 foreach (var item in arr)
-                {
                     result.Add((item?["Name"]?.ToString() ?? "", item?["State"]?.ToString() ?? ""));
-                }
-
                 return result;
             }
 
-            // CASE 2: single object
-            if (node is JsonObject obj)
+            if (node is JsonObject singleObj)
             {
-                result.Add((obj["Name"]?.ToString() ?? "", obj["State"]?.ToString() ?? ""));
-
+                result.Add((singleObj["Name"]?.ToString() ?? "", singleObj["State"]?.ToString() ?? ""));
                 return result;
             }
 

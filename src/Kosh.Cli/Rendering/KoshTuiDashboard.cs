@@ -540,8 +540,11 @@ public sealed class KoshTuiDashboard : Window
 
     public bool HandleRootKeyEvent(Key key)
     {
-        uint k = (uint)key;
-        char ch = (char)(k & 0xFFFF);
+        if (key == Key.C.WithCtrl || key == Key.Q.WithCtrl)
+        {
+            ConfirmAndQuit();
+            return true;
+        }
 
         if (_isCmdActive)
         {
@@ -600,6 +603,14 @@ public sealed class KoshTuiDashboard : Window
             _logView.ScrollDown(Math.Max(1, _logView.Viewport.Height));
             return true;
         }
+
+        if (key.IsCtrl || key.IsAlt)
+        {
+            return false;
+        }
+
+        uint k = (uint)key;
+        char ch = (char)(k & 0xFFFF);
 
         if (ch == ':')
         {
